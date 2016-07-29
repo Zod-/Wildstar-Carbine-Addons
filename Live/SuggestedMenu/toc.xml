@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Addon Author="TMiller" APIVersion="9" Name="SuggestedMenu" Description="This window will be used when certain addons require autocompletion.">
+    <Script Name="SuggestedMenu.lua"/>
+    <Form Name="SuggestedMenu.xml"/>
+    <Script Name="SuggestedTextBoxSubclass.lua"/>
+</Addon>

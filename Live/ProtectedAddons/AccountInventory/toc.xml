@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Addon Author="Carbine" APIVersion="10" Name="AccountInventory" Description="" OptionsScreen="1">
+    <Script Name="AccountInventory.lua"/>
+    <Form Name="AccountInventory.xml"/>
+</Addon>

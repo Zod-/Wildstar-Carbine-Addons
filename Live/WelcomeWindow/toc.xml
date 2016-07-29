@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Addon Author="Carbine" APIVersion="11" Name="WelcomeWindow" Description="">
+    <Script Name="WelcomeWindow.lua"/>
+    <Form Name="WelcomeWindow.xml"/>
+    <Script Name="ExitWindow.lua"/>
+    <Form Name="ExitWindow.xml"/>
+    <Script Name="Overview.lua"/>
+    <Form Name="Overview.xml"/>
+    <Script Name="DailyRewards.lua"/>
+    <Form Name="DailyRewards.xml"/>
+    <Script Name="LiveEvents.lua"/>
+    <Form Name="LiveEvents.xml"/>
+    <Script Name="SuggestedContent.lua"/>
+    <Form Name="SuggestedContent.xml"/>
+	<Script Name="StoreContent.lua"/>
+    <Form Name="StoreContent.xml"/>
+</Addon>

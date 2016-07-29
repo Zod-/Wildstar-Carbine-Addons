@@ -1,0 +1,7 @@
+<Addon Name="Challenges" Version="1">
+  <Script Name="ChallengeLog.lua" />
+  <Form Name="ChallengeLog.xml" />
+  <Script Name="ChallengeDisplay.lua" />
+  <Script Name="Challengetracker.lua" />
+  <Form Name="Challengetracker.xml" />
+</Addon>

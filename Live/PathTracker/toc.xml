@@ -1,0 +1,4 @@
+<Addon Name="PathTracker" Version="1">
+    <Script Name="PathTracker.lua" />
+    <Form Name="PathTracker.xml" />
+</Addon>

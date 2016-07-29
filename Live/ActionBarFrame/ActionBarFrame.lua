@@ -1,0 +1,706 @@
+-----------------------------------------------------------------------------------------------
+-- Client Lua Script for ActionBarFrame
+-- Copyright (c) NCsoft. All rights reserved
+-----------------------------------------------------------------------------------------------
+
+require "Window"
+require "Apollo"
+require "GameLib"
+require "CollectiblesLib"
+require "Spell"
+require "Unit"
+require "Item"
+require "AbilityBook"
+require "ActionSetLib"
+require "Tooltip"
+
+local ActionBarFrame = {}
+
+function ActionBarFrame:new(o)
+    o = o or {}
+    setmetatable(o, self)
+    self.__index = self
+    return o
+end
+
+function ActionBarFrame:Init()
+    Apollo.RegisterAddon(self)
+end
+
+function ActionBarFrame:OnLoad()
+	self.nSelectedMount = nil
+	self.nSelectedPotion = nil
+	
+	self.xmlDoc = XmlDoc.CreateFromFile("ActionBarFrame.xml")
+	self.xmlDoc:RegisterCallback("OnDocumentReady", self)
+end
+
+function ActionBarFrame:OnDocumentReady()
+	Apollo.RegisterEventHandler("UnitEnteredCombat", 						"OnUnitEnteredCombat", self)
+	Apollo.RegisterEventHandler("PlayerChanged", 							"InitializeBars", self)
+	Apollo.RegisterEventHandler("ResolutionChanged",						"InitializeBars", self)
+	Apollo.RegisterEventHandler("ApplicationWindowSizeChanged", 			"InitializeBars", self)
+	Apollo.RegisterEventHandler("OptionsUpdated_HUDPreferences", 			"InitializeBars", self)
+	Apollo.RegisterEventHandler("PlayerLevelChange", 						"InitializeBars", self)
+
+	Apollo.RegisterEventHandler("CharacterCreated", 						"OnCharacterCreated", self)
+	
+	Apollo.RegisterEventHandler("AbilityBookChange",						"RedrawMounts", self)
+	Apollo.RegisterEventHandler("StanceChanged", 							"RedrawStances", self)
+	
+	Apollo.RegisterEventHandler("ShowActionBarShortcut", 					"OnShowActionBarShortcut", self)
+	Apollo.RegisterEventHandler("ShowActionBarShortcutDocked", 				"OnShowActionBarShortcutDocked", self)
+	Apollo.RegisterEventHandler("Tutorial_RequestUIAnchor", 				"OnTutorial_RequestUIAnchor", self)
+	Apollo.RegisterEventHandler("Options_UpdateActionBarTooltipLocation", 	"OnUpdateActionBarTooltipLocation", self)
+	Apollo.RegisterEventHandler("ActionBarNonSpellShortcutAddFailed", 		"OnActionBarNonSpellShortcutAddFailed", self)
+	Apollo.RegisterEventHandler("UpdateInventory", 							"OnUpdateInventory", self)
+
+	self.wndShadow = Apollo.LoadForm(self.xmlDoc, "Shadow", "FixedHudStratum", self)
+	self.wndArt = Apollo.LoadForm(self.xmlDoc, "Art", "FixedHudStratum", self)
+	self.wndBar3 = Apollo.LoadForm(self.xmlDoc, "Bar3ButtonContainer", "FixedHudStratum", self)
+	self.wndBar2 = Apollo.LoadForm(self.xmlDoc, "Bar2ButtonContainer", "FixedHudStratum", self)
+
+	self.wndMain = Apollo.LoadForm(self.xmlDoc, "ActionBarFrameForm", "FixedHudStratumHigh", self)
+	self.wndBar1 = self.wndMain:FindChild("Bar1ButtonContainer")
+
+	self.wndStancePopoutFrame = self.wndMain:FindChild("StancePopoutFrame")
+	self.wndMain:FindChild("StancePopoutBtn"):AttachWindow(self.wndStancePopoutFrame)
+
+	self.wndPotionFlyout = self.wndMain:FindChild("PotionFlyout")
+	self.wndPotionPopoutFrame = self.wndPotionFlyout:FindChild("PotionPopoutFrame")
+	self.wndMain:FindChild("PotionPopoutBtn"):AttachWindow(self.wndPotionPopoutFrame)
+
+	g_wndActionBarResources	= Apollo.LoadForm(self.xmlDoc, "Resources", "FixedHudStratum", self) -- Do not rename. This is global and used by other forms as a parent.
+
+	Event_FireGenericEvent("ActionBarLoaded")
+	
+	self.wndMountFlyout = Apollo.LoadForm(self.xmlDoc, "MountFlyout", "FixedHudStratum", self)
+	self.wndMountFlyoutFrame = Apollo.LoadForm(self.xmlDoc, "MountPopoutFrame", nil, self)
+	self.wndMountFlyout:FindChild("MountPopoutBtn"):AttachWindow(self.wndMountFlyoutFrame)
+
+	self.wndArt:Show(false)
+	self.wndMain:Show(false)
+	self.wndMountFlyout:Show(false)
+	self.wndPotionFlyout:Show(false)
+	
+	self.tAnchorMapping = 
+	{
+		[GameLib.CodeEnumTutorialAnchor.InnateAbility] 	= self.wndMain:FindChild("StancePopoutBtn"),
+	}
+	
+	if GameLib.GetPlayerUnit() ~= nil then
+		self:OnCharacterCreated()
+	end
+end
+
+function ActionBarFrame:OnSave(eType)
+	if eType ~= GameLib.CodeEnumAddonSaveLevel.Character then
+		return
+	end
+
+	local tSavedData =
+	{
+		nSelectedMount = self.nSelectedMount,
+		nSelectedPotion = self.nSelectedPotion,
+		tVehicleBar = self.tCurrentVehicleInfo
+	}
+
+	return tSavedData
+end
+
+function ActionBarFrame:OnRestore(eType, tSavedData)
+	if eType ~= GameLib.CodeEnumAddonSaveLevel.Character then
+		return
+	end
+
+	if tSavedData.nSelectedMount then
+		self.nSelectedMount = tSavedData.nSelectedMount
+	end
+
+	if tSavedData.nSelectedPotion then
+		self.nSelectedPotion = tSavedData.nSelectedPotion
+	end
+	
+	if tSavedData.tVehicleBar then
+		self.tCurrentVehicleInfo = tSavedData.tVehicleBar
+	end
+end
+
+function ActionBarFrame:OnPlayerEquippedItemChanged()
+	local nVisibility = Apollo.GetConsoleVariable("hud.skillsBarDisplay")
+	if (nVisibility == nil or nVisibility < 1) and self:IsWeaponEquipped() then
+		Event_FireGenericEvent("OptionsUpdated_HUDTriggerTutorial", "skillsBarDisplay")
+	end
+end
+
+function ActionBarFrame:IsWeaponEquipped()
+	local unitPlayer = GameLib.GetPlayerUnit()
+	
+	local tEquipment = unitPlayer and unitPlayer:IsValid() and unitPlayer:GetEquippedItems() or {}
+	for idx, tItemData in pairs(tEquipment) do
+		if tItemData:GetSlot() == 16 then
+			return true
+		end
+	end
+
+	return false
+end
+
+function ActionBarFrame:OnUnitEnteredCombat(unit)
+	if unit ~= GameLib.GetPlayerUnit() then
+		return
+	end
+	
+	self:RedrawBarVisibility()
+end
+
+function ActionBarFrame:InitializeBars()
+	self:RedrawStances()
+	self:RedrawMounts()
+	self:RedrawPotions()
+
+	local nVisibility = Apollo.GetConsoleVariable("hud.skillsBarDisplay")
+
+	if nVisibility == nil or nVisibility < 1 then
+		local bHasWeaponEquipped = self:IsWeaponEquipped()
+
+		if bHasWeaponEquipped then
+			-- This isn't a new character, set the preference to always display.
+			Apollo.SetConsoleVariable("hud.skillsBarDisplay", 1)
+		else
+			-- Wait for the player to equip their first item
+			Apollo.RegisterEventHandler("PlayerEquippedItemChanged", 	"OnPlayerEquippedItemChanged", self)
+		end
+	end
+
+	self.wndArt:Show(true)
+	self.wndMain:Show(true)
+	self.wndBar1:DestroyChildren()
+	self.wndBar2:DestroyChildren()
+	self.wndBar3:DestroyChildren()
+
+	-- All the buttons
+	self.arBarButtons = {}
+	self.arBarButtons[0] = self.wndMain:FindChild("ActionBarInnate")
+
+	for idx = 1, 34 do
+		local wndCurr = nil
+		local wndActionBarBtn = nil
+
+		if idx < 9 then
+			wndCurr = Apollo.LoadForm(self.xmlDoc, "ActionBarItemBig", self.wndBar1, self)
+			wndActionBarBtn = wndCurr:FindChild("ActionBarBtn")
+			wndActionBarBtn:SetContentId(idx - 1)
+			
+			if idx == 1 then
+				self.tAnchorMapping[GameLib.CodeEnumTutorialAnchor.AbilityBarSlotOne] = wndCurr
+			elseif idx == 3 then
+				self.tAnchorMapping[GameLib.CodeEnumTutorialAnchor.AbilityBarSlotThree] = wndCurr
+			end
+			
+			if ActionSetLib.IsSlotUnlocked(idx - 1) ~= ActionSetLib.CodeEnumLimitedActionSetResult.Ok then
+				wndCurr:FindChild("LockSprite"):Show(true)
+				wndCurr:FindChild("Cover"):Show(false)
+				wndCurr:FindChild("Shadow"):Show(false)
+			else
+				wndCurr:FindChild("LockSprite"):Show(false)
+				wndCurr:FindChild("Cover"):Show(true)
+				wndCurr:FindChild("Shadow"):Show(true)
+			end
+		elseif idx < 10 then -- Gadget
+			wndCurr = Apollo.LoadForm(self.xmlDoc, "ActionBarItemMed", self.wndMain:FindChild("Bar1ButtonSmallContainer:Buttons"), self)
+			wndActionBarBtn = wndCurr:FindChild("ActionBarBtn")
+			wndActionBarBtn:SetContentId(idx - 1)
+
+			wndCurr:FindChild("LockSprite"):Show(false)
+			wndCurr:FindChild("Cover"):Show(false)
+			wndCurr:FindChild("Shadow"):Show(false)
+
+			if ActionSetLib.IsSlotUnlocked(idx - 1) ~= ActionSetLib.CodeEnumLimitedActionSetResult.Ok then
+				wndCurr:SetTooltip(Apollo.GetString("ActionBarFrame_LockedGadgetSlot"))
+			else
+				wndCurr:SetTooltip("")
+			end
+		elseif idx < 11 then -- Path
+			--Deprecated
+		elseif idx < 23 then -- 11 to 22
+			wndCurr = Apollo.LoadForm(self.xmlDoc, "ActionBarItemSmall", self.wndBar2, self)
+			wndActionBarBtn = wndCurr:FindChild("ActionBarBtn")
+			wndActionBarBtn:SetContentId(idx + 1)
+
+			--hide bars we can't draw due to screen size
+			if (idx - 10) * wndCurr:GetWidth() > self.wndBar2:GetWidth() and self.wndBar2:GetWidth() > 0 then
+				wndCurr:Show(false)
+			end
+		else -- 23 to 34
+			wndCurr = Apollo.LoadForm(self.xmlDoc, "ActionBarItemSmall", self.wndBar3, self)
+			wndActionBarBtn = wndCurr:FindChild("ActionBarBtn")
+			wndActionBarBtn:SetContentId(idx + 1)
+
+			--hide bars we can't draw due to screen size
+			if (idx - 22) * wndCurr:GetWidth() > self.wndBar3:GetWidth() and self.wndBar3:GetWidth() > 0 then
+				wndCurr:Show(false)
+			end
+		end
+		
+		self.arBarButtons[idx] = wndActionBarBtn
+	end
+
+	self.wndBar1:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.LeftOrTop)
+	self.wndMain:FindChild("Bar1ButtonSmallContainer:Buttons"):ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.LeftOrTop)
+	self.wndBar2:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.LeftOrTop)
+	self.wndBar3:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.LeftOrTop)
+	self:OnUpdateActionBarTooltipLocation()
+
+	self:RedrawBarVisibility()
+end
+
+function ActionBarFrame:RedrawBarVisibility()
+	local unitPlayer = GameLib.GetPlayerUnit()
+	
+	--Toggle Visibility based on ui preference
+	local nSkillsVisibility = Apollo.GetConsoleVariable("hud.skillsBarDisplay")
+	local nResourceVisibility = Apollo.GetConsoleVariable("hud.resourceBarDisplay")
+	local nLeftVisibility = Apollo.GetConsoleVariable("hud.secondaryLeftBarDisplay")
+	local nRightVisibility = Apollo.GetConsoleVariable("hud.secondaryRightBarDisplay")
+	local nMountVisibility = Apollo.GetConsoleVariable("hud.mountButtonDisplay")
+
+	if nSkillsVisibility == 1 then --always on
+		self.wndMain:Show(true)
+	elseif nSkillsVisibility == 2 then --always off
+		self.wndMain:Show(false)
+	elseif nSkillsVisibility == 3 then --on in combat
+		self.wndMain:Show(unitPlayer and unitPlayer:IsInCombat())
+	elseif nSkillsVisibility == 4 then --on out of combat
+		self.wndMain:Show(unitPlayer and not unitPlayer:IsInCombat())
+	else
+		self.wndMain:Show(false)
+	end
+	
+	if nResourceVisibility == 1 then --always on
+		g_wndActionBarResources:Show(true)
+	elseif nResourceVisibility == 2 then --always off
+		g_wndActionBarResources:Show(false)
+	elseif nResourceVisibility == 3 then --on in combat
+		g_wndActionBarResources:Show(unitPlayer and unitPlayer:IsInCombat())
+	elseif nResourceVisibility == 4 then --on out of combat
+		g_wndActionBarResources:Show(unitPlayer and not unitPlayer:IsInCombat())
+	else
+		g_wndActionBarResources:Show(self.wndMain:IsShown())
+	end
+
+	if nLeftVisibility == 1 then --always on
+		self.wndBar2:Show(true)
+	elseif nLeftVisibility == 2 then --always off
+		self.wndBar2:Show(false)
+	elseif nLeftVisibility == 3 then --on in combat
+		self.wndBar2:Show(unitPlayer and unitPlayer:IsInCombat())
+	elseif nLeftVisibility == 4 then --on out of combat
+		self.wndBar2:Show(unitPlayer and not unitPlayer:IsInCombat())
+	else
+		--NEW Player Experience: Set the bottom left/right bars to Always Show once you've reached level 3
+		if unitPlayer and (unitPlayer:GetLevel() or 1) > 2 then
+			--Trigger a HUD Tutorial
+			Event_FireGenericEvent("OptionsUpdated_HUDTriggerTutorial", "secondaryLeftBarDisplay")
+		end
+
+		self.wndBar2:Show(false)
+	end
+
+	if nRightVisibility == 1 then --always on
+		self.wndBar3:Show(true)
+	elseif nRightVisibility == 2 then --always off
+		self.wndBar3:Show(false)
+	elseif nRightVisibility == 3 then --on in combat
+		self.wndBar3:Show(unitPlayer and unitPlayer:IsInCombat())
+	elseif nRightVisibility == 4 then --on out of combat
+		self.wndBar3:Show(unitPlayer and not unitPlayer:IsInCombat())
+	else
+		--NEW Player Experience: Set the bottom left/right bars to Always Show once you've reached level 3
+		if unitPlayer and (unitPlayer:GetLevel() or 1) > 2 then
+			--Trigger a HUD Tutorial
+			Event_FireGenericEvent("OptionsUpdated_HUDTriggerTutorial", "secondaryRightBarDisplay")
+		end
+
+		self.wndBar3:Show(false)
+	end
+
+	if next(self.wndMountFlyoutFrame:FindChild("MountPopoutList"):GetChildren()) ~= nil then
+		if nMountVisibility == 2 then --always off
+			self.wndMountFlyout:Show(false)
+		elseif nMountVisibility == 3 then --on in combat
+			self.wndMountFlyout:Show(unitPlayer and unitPlayer:IsInCombat())
+		elseif nMountVisibility == 4 then --on out of combat
+			self.wndMountFlyout:Show(unitPlayer and not unitPlayer:IsInCombat())
+		else
+			self.wndMountFlyout:Show(true)
+		end
+	else
+		self.wndMountFlyout:Show(false)
+	end
+
+	local bActionBarShown = self.wndMain:IsShown()
+	local bFloatingActionBarShown = self.wndArt:FindChild("BarFrameShortcut"):IsShown()
+
+	self.wndShadow:SetOpacity(0.5)
+	self.wndShadow:Show(true)
+	self.wndArt:Show(bActionBarShown)
+	self.wndPotionFlyout:Show(self.wndPotionFlyout:IsShown() and unitPlayer and not unitPlayer:IsInVehicle())
+
+	local nLeft, nTop, nRight, nBottom = g_wndActionBarResources:GetAnchorOffsets()
+
+	if bActionBarShown then
+		local nOffset = bFloatingActionBarShown and -173 or -103
+		
+		g_wndActionBarResources:SetAnchorOffsets(nLeft, nTop, nRight, nOffset)
+	else
+		g_wndActionBarResources:SetAnchorOffsets(nLeft, nTop, nRight, -19)
+	end
+end
+
+-----------------------------------------------------------------------------------------------
+-- Main Redraw
+-----------------------------------------------------------------------------------------------
+function ActionBarFrame:RedrawStances()
+	local wndStancePopout = self.wndStancePopoutFrame:FindChild("StancePopoutList")
+	wndStancePopout:DestroyChildren()
+
+	local nCountSkippingTwo = 0
+	for idx, spellObject in pairs(GameLib.GetClassInnateAbilitySpells().tSpells) do
+		if idx % 2 == 1 then
+			nCountSkippingTwo = nCountSkippingTwo + 1
+			local strKeyBinding = GameLib.GetKeyBinding("SetStance"..nCountSkippingTwo) -- hardcoded formatting
+			local wndCurr = Apollo.LoadForm(self.xmlDoc, "StanceBtn", wndStancePopout, self)
+			wndCurr:FindChild("StanceBtnIcon"):SetSprite(spellObject:GetIcon())
+			wndCurr:SetData(nCountSkippingTwo)
+
+			if Tooltip and Tooltip.GetSpellTooltipForm then
+				wndCurr:SetTooltipDoc(nil)
+				Tooltip.GetSpellTooltipForm(self, wndCurr, spellObject)
+			end
+		end
+	end
+
+	local nHeight = wndStancePopout:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop)
+	local nLeft, nTop, nRight, nBottom = self.wndStancePopoutFrame:GetAnchorOffsets()
+	self.wndStancePopoutFrame:SetAnchorOffsets(nLeft, nBottom - nHeight - 72, nRight, nBottom)
+	self.wndMain:FindChild("StancePopoutBtn"):Show(#wndStancePopout:GetChildren() > 0)
+end
+
+function ActionBarFrame:OnStanceBtn(wndHandler, wndControl)
+	self.wndMain:FindChild("StancePopoutFrame"):Show(false)
+	GameLib.SetCurrentClassInnateAbilityIndex(wndHandler:GetData())
+end
+
+function ActionBarFrame:RedrawSelectedMounts()
+	GameLib.SetShortcutMount(self.nSelectedMount)
+end
+
+function ActionBarFrame:RedrawMounts()
+	local wndMountPopout = self.wndMountFlyoutFrame:FindChild("MountPopoutList")
+	wndMountPopout:DestroyChildren()
+
+	local tMountList = CollectiblesLib.GetMountList()
+	local splSelected = nil
+
+	for idx, tMountData  in pairs(tMountList) do
+		if tMountData.bIsKnown then
+			local splMount = tMountData.splObject
+			
+			if not splSelected then
+				splSelected = splMount
+			end
+
+			if splMount:GetId() == self.nSelectedMount then
+				splSelected = splMount
+			end
+
+			local wndCurr = Apollo.LoadForm(self.xmlDoc, "MountBtn", wndMountPopout, self)
+			wndCurr:FindChild("MountBtnIcon"):SetSprite(splMount:GetIcon())
+			wndCurr:SetData(splMount)
+
+			if Tooltip and Tooltip.GetSpellTooltipForm then
+				wndCurr:SetTooltipDoc(nil)
+				Tooltip.GetSpellTooltipForm(self, wndCurr, splMount, {})
+			end
+		end
+	end
+
+	if splSelected then
+		GameLib.SetShortcutMount(splSelected:GetId())
+	end
+
+	local nCount = #wndMountPopout:GetChildren()
+	if nCount > 0 then
+		local nMax = 7
+		local nMaxHeight = (wndMountPopout:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop) / nCount) * nMax
+		local nHeight = wndMountPopout:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop)
+
+		nHeight = nHeight <= nMaxHeight and nHeight or nMaxHeight
+
+		local nLeft, nTop, nRight, nBottom = self.wndMountFlyoutFrame:GetAnchorOffsets()
+
+		self.wndMountFlyoutFrame:SetAnchorOffsets(nLeft, nBottom - nHeight - 74, nRight, nBottom)
+		self:RedrawBarVisibility()
+	else
+		self.wndMountFlyout:Show(false)
+	end
+end
+
+function ActionBarFrame:OnMountBtn(wndHandler, wndControl)
+	self.nSelectedMount = wndControl:GetData():GetId()
+
+	self.wndMountFlyoutFrame:Show(false)
+	self:RedrawSelectedMounts()
+end
+
+function ActionBarFrame:RedrawPotions()
+	local unitPlayer = GameLib.GetPlayerUnit()
+	
+	local wndPotionPopout = self.wndPotionPopoutFrame:FindChild("PotionPopoutList")
+	wndPotionPopout:DestroyChildren()
+
+	local tItemList = unitPlayer and unitPlayer:IsValid() and unitPlayer:GetInventoryItems() or {}
+	local tSelectedPotion = nil;
+	local tFirstPotion = nil
+	local tPotions = { }
+	
+	for idx, tItemData in pairs(tItemList) do
+		if tItemData and tItemData.itemInBag and tItemData.itemInBag:GetItemCategory() == 48 then--and tItemData.itemInBag:GetConsumable() == "Consumable" then
+			local itemPotion = tItemData.itemInBag
+
+			if tFirstPotion == nil then
+				tFirstPotion = itemPotion
+			end
+
+			if itemPotion:GetItemId() == self.nSelectedPotion then
+				tSelectedPotion = itemPotion
+			end
+			
+			local idItem = itemPotion:GetItemId()
+
+			if tPotions[idItem] == nil then
+				tPotions[idItem] = 
+				{
+					itemObject = itemPotion,
+					nCount = itemPotion:GetStackCount(),
+				}
+			else
+				tPotions[idItem].nCount = tPotions[idItem].nCount + itemPotion:GetStackCount()
+			end
+		end
+	end
+
+	for idx, tData  in pairs(tPotions) do
+		local wndCurr = Apollo.LoadForm(self.xmlDoc, "PotionBtn", wndPotionPopout, self)
+		wndCurr:FindChild("PotionBtnIcon"):SetSprite(tData.itemObject:GetIcon())
+		if (tData.nCount > 1) then wndCurr:FindChild("PotionBtnStackCount"):SetText(tData.nCount) end
+		wndCurr:SetData(tData.itemObject)
+
+		wndCurr:SetTooltipDoc(nil)
+		Tooltip.GetItemTooltipForm(self, wndCurr, tData.itemObject, {})
+	end
+
+	if tSelectedPotion == nil and tFirstPotion ~= nil then
+		tSelectedPotion = tFirstPotion
+	end
+
+	if tSelectedPotion ~= nil then
+		GameLib.SetShortcutPotion(tSelectedPotion:GetItemId())
+	end
+
+	local nCount = #wndPotionPopout:GetChildren()
+	if nCount > 0 then
+		local nMax = 7
+		local nMaxHeight = (wndPotionPopout:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop) / nCount) * nMax
+		local nHeight = wndPotionPopout:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop)
+
+		nHeight = nHeight <= nMaxHeight and nHeight or nMaxHeight
+
+		local nLeft, nTop, nRight, nBottom = self.wndPotionPopoutFrame:GetAnchorOffsets()
+
+		self.wndPotionPopoutFrame:SetAnchorOffsets(nLeft, nBottom - nHeight - 74, nRight, nBottom)
+	end
+
+	self.wndPotionFlyout:Show(nCount > 0)
+end
+
+function ActionBarFrame:OnPotionBtn(wndHandler, wndControl)
+	self.nSelectedPotion = wndControl:GetData():GetItemId()
+
+	self.wndPotionPopoutFrame:Show(false)
+	self:RedrawPotions()
+end
+
+function ActionBarFrame:OnShowActionBarShortcut(eWhichBar, bIsVisible, nNumShortcuts)
+	if eWhichBar == ActionSetLib.CodeEnumShortcutSet.VehicleBar and self.wndMain and self.wndMain:IsValid() then
+		if self.arBarButtons then
+			for idx, wndBtn in pairs(self.arBarButtons) do
+				wndBtn:Enable(not bIsVisible) -- Turn on or off all buttons
+			end
+		end
+		self:ShowVehicleBar(eWhichBar, bIsVisible, nNumShortcuts) -- show/hide vehicle bar if eWhichBar matches
+	end
+end
+
+function ActionBarFrame:OnShowActionBarShortcutDocked(bVisible)
+	self.wndArt:FindChild("BarFrameShortcut"):Show(bVisible, not bVisible)
+	self:RedrawBarVisibility()
+end
+
+function ActionBarFrame:ShowVehicleBar(eWhichBar, bIsVisible, nNumShortcuts)
+	if eWhichBar ~= ActionSetLib.CodeEnumShortcutSet.VehicleBar or not self.wndMain or not self.wndMain:IsValid() then
+		return
+	end
+
+	local wndVehicleBar = self.wndMain:FindChild("VehicleBarMain")
+	wndVehicleBar:Show(bIsVisible)
+
+	self.wndMain:FindChild("StanceFlyout"):Show(not bIsVisible)
+	self.wndMain:FindChild("Bar1ButtonSmallContainer"):Show(not bIsVisible)
+
+	self.wndBar1:Show(not bIsVisible)
+	local unitPlayer = GameLib:GetPlayerUnit()
+	if unitPlayer and not unitPlayer:IsInVehicle() then
+		self.tCurrentVehicleInfo = nil
+	end
+
+	if bIsVisible then
+		for idx = 1, 6 do -- TODO hardcoded formatting
+			wndVehicleBar:FindChild("ActionBarShortcutContainer" .. idx):Show(false)
+		end
+
+		if nNumShortcuts then
+			for idx = 1, nNumShortcuts do
+				wndVehicleBar:FindChild("ActionBarShortcutContainer" .. idx):Show(true)
+				wndVehicleBar:FindChild("ActionBarShortcutContainer" .. idx):FindChild("ActionBarShortcut." .. idx):Enable(true)
+			end
+
+			local nLeft, nTop ,nRight, nBottom = wndVehicleBar:FindChild("VehicleBarFrame"):GetAnchorOffsets() -- TODO SUPER HARDCODED FORMATTING
+			wndVehicleBar:FindChild("VehicleBarFrame"):SetAnchorOffsets(nLeft, nTop, nLeft + (58 * nNumShortcuts) + 66, nBottom)
+		end
+
+		wndVehicleBar:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.Middle)
+		
+		self.tCurrentVehicleInfo =
+		{
+			nBar = nWhichBar,
+			nNumShortcuts = nNumShortcuts,
+		}
+	end
+end
+
+function ActionBarFrame:OnUpdateActionBarTooltipLocation()
+	for idx = 0, 9 do
+		self:HelperSetTooltipType(self.arBarButtons[idx])
+	end
+end
+
+function ActionBarFrame:HelperSetTooltipType(wnd)
+	if Apollo.GetConsoleVariable("ui.actionBarTooltipsOnCursor") then
+		wnd:SetTooltipType(Window.TPT_OnCursor)
+	else
+		wnd:SetTooltipType(Window.TPT_DynamicFloater)
+	end
+end
+
+function ActionBarFrame:OnTutorial_RequestUIAnchor(eAnchor, idTutorial, strPopupText)
+	if self.tAnchorMapping and self.tAnchorMapping[eAnchor] then
+		Event_FireGenericEvent("Tutorial_ShowCallout", eAnchor, idTutorial, strPopupText, self.tAnchorMapping[eAnchor])
+	end
+end
+
+function ActionBarFrame:OnUpdateInventory()
+	local unitPlayer = GameLib.GetPlayerUnit()
+	
+	if self.nPotionCount == nil then
+		self.nPotionCount = 0
+	end
+
+	local nLastPotionCount = self.nPotionCount
+	local tItemList = unitPlayer and unitPlayer:IsValid() and unitPlayer:GetInventoryItems() or {}
+	local tPotions = { }
+
+	for idx, tItemData in pairs(tItemList) do
+		if tItemData and tItemData.itemInBag and tItemData.itemInBag:GetItemCategory() == 48 then--and tItemData.itemInBag:GetConsumable() == "Consumable" then
+			local tItem = tItemData.itemInBag
+
+			if tPotions[tItem:GetItemId()] == nil then
+				tPotions[tItem:GetItemId()] = {}
+				tPotions[tItem:GetItemId()].nCount=tItem:GetStackCount()
+			else
+				tPotions[tItem:GetItemId()].nCount = tPotions[tItem:GetItemId()].nCount + tItem:GetStackCount()
+			end
+		end
+	end
+
+	self.nPotionCount = 0
+	for idx, tItemData in pairs(tPotions) do
+		self.nPotionCount = self.nPotionCount + 1
+	end
+
+	if self.nPotionCount ~= nLastPotionCount then
+		self:RedrawPotions()
+	end
+end
+
+function ActionBarFrame:OnGenerateTooltip(wndControl, wndHandler, eType, arg1, arg2)
+	local xml = nil
+	if eType == Tooltip.TooltipGenerateType_ItemInstance then -- Doesn't need to compare to item equipped
+		Tooltip.GetItemTooltipForm(self, wndControl, arg1, {})
+	elseif eType == Tooltip.TooltipGenerateType_ItemData then -- Doesn't need to compare to item equipped
+		Tooltip.GetItemTooltipForm(self, wndControl, arg1, {})
+	elseif eType == Tooltip.TooltipGenerateType_GameCommand then
+		xml = XmlDoc.new()
+		xml:AddLine(arg2)
+		wndControl:SetTooltipDoc(xml)
+	elseif eType == Tooltip.TooltipGenerateType_Macro then
+		xml = XmlDoc.new()
+		xml:AddLine(arg1)
+		wndControl:SetTooltipDoc(xml)
+	elseif eType == Tooltip.TooltipGenerateType_Spell then
+		if Tooltip ~= nil and Tooltip.GetSpellTooltipForm ~= nil then
+			Tooltip.GetSpellTooltipForm(self, wndControl, arg1)
+		end
+	elseif eType == Tooltip.TooltipGenerateType_PetCommand then
+		xml = XmlDoc.new()
+		xml:AddLine(arg2)
+		wndControl:SetTooltipDoc(xml)
+	end
+end
+
+function ActionBarFrame:OnActionBarNonSpellShortcutAddFailed()
+	--TODO: Print("You can not add that to your Limited Action Set bar.")
+end
+
+function ActionBarFrame:OnCharacterCreated()
+	if not GameLib.IsCharacterLoaded() then
+			self.timerCharacterCreated = ApolloTimer.Create(0.5, false, "OnCharacterCreated", self)
+			return
+	end
+
+	if self.timerCharacterCreated then
+		self.timerCharacterCreated:Stop()
+	end
+	
+	local unitPlayer = GameLib.GetPlayerUnit()	
+
+	if GameLib.IsCharacterLoaded() and not self.bCharacterLoaded and unitPlayer and unitPlayer:IsValid() then
+		self.bCharacterLoaded = true
+		Event_FireGenericEvent("ActionBarReady", self.wndMain)
+		self:InitializeBars()
+		
+		if self.tCurrentVehicleInfo and unitPlayer:IsInVehicle() then
+			self:OnShowActionBarShortcut(self.tCurrentVehicleInfo.nBar, true, self.tCurrentVehicleInfo.nNumShortcuts)
+		else
+			self.tCurrentVehicleInfo = nil
+		end
+	end
+end
+
+function ActionBarFrame:OpenMountsCustomization()
+	Event_FireGenericEvent("GenericEvent_OpenCollectables")
+end
+
+local ActionBarFrameInst = ActionBarFrame:new()
+ActionBarFrameInst:Init()

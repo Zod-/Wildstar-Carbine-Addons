@@ -1,0 +1,6 @@
+<Addon Name="ObjectiveTracker" Version="1">
+    <Script Name="ObjectiveTracker.lua" />
+	<Script Name="Navpoints.lua"/>
+    <Form Name="ObjectiveTracker.xml" />
+	<Form Name="Navpoints.xml"/>
+</Addon>

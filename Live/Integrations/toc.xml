@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Addon Author="Carbine" APIVersion="10" Name="Integrations" Description="">
+    <Script Name="AlienFx.lua"/>
+</Addon>

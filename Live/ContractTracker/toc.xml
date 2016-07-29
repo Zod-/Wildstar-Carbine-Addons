@@ -1,0 +1,4 @@
+<Addon Name="ContractTracker" Version="1">
+    <Script Name="ContractTracker.lua" />
+    <Form Name="ContractTracker.xml" />
+</Addon>

@@ -1,0 +1,4 @@
+<Addon Name="Communities" APIVersion="2">
+    <Script Name="CommunitiesMain.lua" />
+    <Form Name="CommunitiesMain.xml" />
+</Addon>
