@@ -301,7 +301,7 @@ function ContextMenuPlayer:RedrawAll()
 	local unitPlayer = GameLib.GetPlayerUnit()
 	local bInGroup = GroupLib.InGroup()
 	local bAmIGroupLeader = GroupLib.AmILeader()
-	local bBaseCrossFaction =  unitTarget:GetBaseFaction() ~= unitPlayer:GetBaseFaction()
+	local bBaseCrossFaction = unitTarget ~= nil and unitTarget:GetBaseFaction() ~= unitPlayer:GetBaseFaction()
 	local tMyGroupData = GroupLib.GetGroupMember(1)
 	local tCharacterData = GameLib.SearchRelationshipStatusByCharacterName(strTarget)
 	local tTargetGroupData = (tCharacterData and tCharacterData.nPartyIndex) and GroupLib.GetGroupMember(tCharacterData.nPartyIndex) or nil
