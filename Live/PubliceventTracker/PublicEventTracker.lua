@@ -469,12 +469,14 @@ function PublicEventTracker:DrawEvent(peEvent)
 		local nDisplayA = a:GetDisplayOrder()
 		local nDisplayB = b:GetDisplayOrder()
 
-		if nDisplayA == 0 then
+		if nDisplayA == nDisplayB then
+			return a:GetObjectiveId() < b:GetObjectiveId()
+		elseif nDisplayA == 0 then
 			return false
 		elseif nDisplayB == 0 then
 			return true
 		else
-			return nDisplayA <= nDisplayB
+			return nDisplayA < nDisplayB
 		end
 	end
 

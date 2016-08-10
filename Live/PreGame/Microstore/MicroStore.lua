@@ -117,14 +117,12 @@ function MicroStore:OnDocLoaded()
 	if StorefrontLib.GetIsPTR() then
 		self.tWndRefs.wndWalletPremium:SetTooltip(Apollo.GetString("Storefront_NCoinsCurrencyToolipPTR"))
 		self.tWndRefs.wndWalletAlternative:SetTooltip(Apollo.GetString("Storefront_OmnibitsCurrencyToolipPTR"))
-		--self.tWndRefs.wndCenterPurchaseConfirmDisclaimer:SetText(Apollo.GetString("Storefront_PurchaseDisclaimerPTR"))
 	else
-		--self.tWndRefs.wndCenterPurchaseConfirmDisclaimer:SetText(Apollo.GetString("Storefront_PurchaseDisclaimer"))
-		
 		self.tWndRefs.wndWalletPremium:SetTooltip(PreGameLib.String_GetWeaselString(Apollo.GetString("Storefront_PremiumCurrencyToolip"), unpack(arCurrencyActors)))
 		self.tWndRefs.wndWalletAlternative:SetTooltip(PreGameLib.String_GetWeaselString(Apollo.GetString("Storefront_AlternativeCurrencyToolip"), unpack(arCurrencyActors)))
-		--self.tWndRefs.wndWalletTopUpBtn:SetTooltip(String_GetWeaselString(Apollo.GetString("Storefront_PurchasePremiumCurrencyTooltip"), unpack(arCurrencyActors)))
 	end
+	
+	self.tWndRefs.wndCenterPurchaseConfirmNotEnoughAlternativeCurrency:SetText(PreGameLib.String_GetWeaselString(Apollo.GetString("Storefront_PurchaseNotEnoughAlternativeCurrency"), unpack(arCurrencyActors)))
 	
 	self:UpdateCurrency()
 end
