@@ -173,6 +173,7 @@ function Costumes:OnDocumentReady()
 	
 	Apollo.RegisterEventHandler("ToggleHoloWardrobeWindow", 				"OnToggleHoloWardrobeWindow", self)
 	Apollo.RegisterEventHandler("GenericEvent_OpenCostumes", 				"OnInit", self)
+	Apollo.RegisterEventHandler("GenericEvent_ToggleCostumes", 				"OnToggle", self)
 	Apollo.RegisterEventHandler("HousingMannequinOpen",						"OnMannequinInit", self)
 	
 	Apollo.RegisterEventHandler("CostumeForgetResult",						"OnForgetResult", self)
@@ -238,7 +239,7 @@ function Costumes:OnWindowManagementReady()
 end
 
 function Costumes:OnInterfaceMenuLoaded()
-	local tData = {"GenericEvent_OpenCostumes", "", "Icon_Windows32_UI_CRB_InterfaceMenu_HoloWardrobe"}
+	local tData = {"GenericEvent_ToggleCostumes", "", "Icon_Windows32_UI_CRB_InterfaceMenu_HoloWardrobe"}
 	Event_FireGenericEvent("InterfaceMenuList_NewAddOn", Apollo.GetString("Costumes_Title"), tData)
 end
 
@@ -295,6 +296,15 @@ function Costumes:OnInit()
 	self:HelperToggleEquippedBtn()
 	self:MapEquipment()
 	self:RedrawCostume()
+end
+
+function Costumes:OnToggle()
+	if self.wndMain and self.wndMain:IsShown() then
+		self:OnClose()
+		return
+	end
+
+	self:OnInit()
 end
 
 function Costumes:OnMannequinInit()

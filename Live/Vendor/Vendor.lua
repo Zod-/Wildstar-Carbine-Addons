@@ -10,6 +10,7 @@ require "Sound"
 require "Item"
 require "Money"
 require "GameLib"
+require "AccountItemLib"
 
 local Vendor = {}
 
@@ -407,7 +408,7 @@ function Vendor:DrawListItem(wndCurr, tCurrItem)
 	local tPrice = nil
 	if tCurrItem.tPriceInfo then
 		-- If the first price value is a token, use the 2nd to determine what to show as the player's cash.
-		local bIsToken = tCurrItem.tPriceInfo.monPrice1:GetMoneyType() == Money.CodeEnumCurrencyType.GroupCurrency and tCurrItem.tPriceInfo.monPrice1:GetAltType() == Money.CodeEnumGroupCurrencyType.None
+		local bIsToken = tCurrItem.tPriceInfo.monPrice1:GetMoneyType() == Money.CodeEnumCurrencyType.GroupCurrency and tCurrItem.tPriceInfo.monPrice1:GetAltType() == Money.CodeEnumGroupCurrencyType.None and tCurrItem.tPriceInfo.monPrice1:GetAccountCurrencyType() == 0
 		
 		tPrice = {}
 		tPrice[1] = tCurrItem.tPriceInfo.monPrice1
@@ -701,6 +702,8 @@ function Vendor:FocusOnVendorListItem(tVendorItem)
 			nPlayerAmount = GameLib.GetPlayerCurrency(tVendorItem.tPriceInfo.eCurrencyType1, tVendorItem.tPriceInfo.eAltType1):GetAmount()
 		elseif tVendorItem.tPriceInfo.itemExchange1 ~= nil then
 			nPlayerAmount = tVendorItem.tPriceInfo.itemExchange1:GetBackpackCount()
+		elseif tVendorItem.tPriceInfo.eAccountCurrencyType1 ~= nil then
+			nPlayerAmount = AccountItemLib.GetAccountCurrency(tVendorItem.tPriceInfo.eAccountCurrencyType1):GetAmount()
 		end
 		if nPrice > nPlayerAmount then
 			bDisableBuy = true
@@ -1497,12 +1500,16 @@ function Vendor:HelperIsTooExpensive(tCurrItem)
 		nPlayerAmount1 = GameLib.GetPlayerCurrency(tCurrItem.tPriceInfo.eCurrencyType1, tCurrItem.tPriceInfo.eAltType1):GetAmount()
 	elseif tCurrItem.tPriceInfo.itemExchange1 ~= nil then
 		nPlayerAmount1 = tCurrItem.tPriceInfo.itemExchange1:GetBackpackCount()
+	elseif tCurrItem.tPriceInfo.eAccountCurrencyType1 ~= nil then
+		nPlayerAmount1 = AccountItemLib.GetAccountCurrency(tCurrItem.tPriceInfo.eAccountCurrencyType1):GetAmount()
 	end
 
 	if tCurrItem.tPriceInfo.eCurrencyType2 ~= nil or tCurrItem.tPriceInfo.eAltType2 ~= nil then
 		nPlayerAmount2 = GameLib.GetPlayerCurrency(tCurrItem.tPriceInfo.eCurrencyType2, tCurrItem.tPriceInfo.eAltType2):GetAmount()
 	elseif tCurrItem.tPriceInfo.itemExchange2 ~= nil then
 		nPlayerAmount2 = tCurrItem.tPriceInfo.itemExchange2:GetBackpackCount()
+	elseif tCurrItem.tPriceInfo.eAccountCurrencyType2 ~= nil then
+		nPlayerAmount2 = AccountItemLib.GetAccountCurrency(tCurrItem.tPriceInfo.eAccountCurrencyType2):GetAmount()
 	end
 	
 	local nAmount1 = tCurrItem.tPriceInfo.monPrice1 and tCurrItem.tPriceInfo.monPrice1:GetAmount() or 0

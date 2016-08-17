@@ -360,6 +360,9 @@ function TargetFrame:Init(xmlDoc, tParams)
 	self.wndMaxAbsorb = self.wndLargeFrame:FindChild("MaxAbsorb")
 	self.wndHealthSplit = self.wndLargeFrame:FindChild("HealthSplit")
 	self.wndHealthCapacityTint = self.wndLargeFrame:FindChild("HealthCapacityTint")
+	self.wndHealingAbsorbCapacityTint = self.wndLargeFrame:FindChild("HealingAbsorbCapacityTint")
+	self.wndHealthClampMin = self.wndLargeFrame:FindChild("HealthClampMin")
+	self.wndHealthClampMax = self.wndLargeFrame:FindChild("HealthClampMax")
 	self.wndShieldCapacityTint = self.wndLargeFrame:FindChild("ShieldCapacityTint")
 	self.wndAbsorbCapacityTint = self.wndLargeFrame:FindChild("AbsorbCapacityTint")
 	self.wndTargetModel = self.wndLargeFrame:FindChild("TargetModel")
@@ -1197,6 +1200,7 @@ function TargetFrame:SetTargetHealthAndShields(wndTargetFrame, unitTarget)
 
 	local nHealthCurr = unitTarget:GetHealth()
 	local nHealthMax = unitTarget:GetMaxHealth()
+	local nHealingAbsorbCurr = unitTarget:GetHealingAbsorptionValue()
 	local nShieldCurr = unitTarget:GetShieldCapacity()
 	local nShieldMax = unitTarget:GetShieldCapacityMax()
 	local nAbsorbCurr = 0
@@ -1204,8 +1208,8 @@ function TargetFrame:SetTargetHealthAndShields(wndTargetFrame, unitTarget)
 	if nAbsorbMax > 0 then
 		nAbsorbCurr = unitTarget:GetAbsorptionValue() -- Since it doesn't clear when the buff drops off
 	end
-	local nTotalMax = nHealthMax + nShieldMax + nAbsorbMax
-	
+	local nHealthClampMin = unitTarget:GetHealthFloor()
+	local nHealthClampMax = unitTarget:GetHealthCeiling()
 	
 	local nHealthTintType = 0
 	
@@ -1230,10 +1234,21 @@ function TargetFrame:SetTargetHealthAndShields(wndTargetFrame, unitTarget)
 	self.wndHealthCapacityTint:SetStyleEx("EdgeGlow", nHealthCurr > 0 and nHealthCurr / nHealthMax < 0.96)
 
 	-- Bars
-	self.wndHealthCapacityTint:SetMax(nHealthMax)
+	self.wndHealthCapacityTint:SetMax(nHealthMax + nHealingAbsorbCurr)
 	self.wndHealthCapacityTint:SetProgress(nHealthCurr)
+	
+	self.wndHealingAbsorbCapacityTint:SetMax(nHealthMax + nHealingAbsorbCurr)
+	self.wndHealingAbsorbCapacityTint:SetProgress(nHealthCurr + nHealingAbsorbCurr)
+	
+	self.wndHealthClampMin:SetMax(nHealthMax + nHealingAbsorbCurr)
+	self.wndHealthClampMin:SetProgress(nHealthClampMin)
+	
+	self.wndHealthClampMax:SetMax(nHealthMax + nHealingAbsorbCurr)
+	self.wndHealthClampMax:SetProgress(nHealthClampMax)
+	
 	self.wndShieldCapacityTint:SetMax(nShieldMax)
 	self.wndShieldCapacityTint:SetProgress(nShieldCurr)
+	
 	self.wndAbsorbCapacityTint:SetMax(nAbsorbMax)
 	self.wndAbsorbCapacityTint:SetProgress(nAbsorbCurr)
 	
@@ -1245,6 +1260,16 @@ function TargetFrame:SetTargetHealthAndShields(wndTargetFrame, unitTarget)
 	local bShowMaxAbsorb = nAbsorbCurr > 0 and nAbsorbMax > 0
 	if bShowMaxAbsorb ~= self.wndMaxAbsorb:IsShown() then
 		self.wndMaxAbsorb:Show(bShowMaxAbsorb)
+	end
+	
+	local bShowHealthClampMax = nHealthClampMax ~= nHealthMax
+	if bShowHealthClampMax ~= self.wndHealthClampMax:IsShown() then
+		self.wndHealthClampMax:Show(bShowHealthClampMax)
+	end
+	
+	local bShowHealthClampMin = nHealthClampMin > 0
+	if bShowHealthClampMin ~= self.wndHealthClampMin:IsShown() then
+		self.wndHealthClampMin:Show(bShowHealthClampMin)
 	end
 	
 	if bShowMaxShield ~= self.bShowMaxShield then
@@ -1356,6 +1381,12 @@ function TargetFrame:SetTargetHealthAndShields(wndTargetFrame, unitTarget)
 		self.strAbsorbMax = strAbsorbMax
 	end
 	
+	local strHealingAbsorb = self.strHealingAbsorb
+	if nHealingAbsorbCurr ~= self.nHealingAbsorbCurr then
+		strHealingAbsorb = nHealingAbsorbCurr > 0 and self:HelperFormatBigNumber(nHealingAbsorbCurr) or "0"
+		self.strHealingAbsorb = strHealingAbsorb
+	end
+	
 	
 	local nVisibility = Apollo.GetConsoleVariable("hud.healthTextDisplay")
 	
@@ -1378,6 +1409,13 @@ function TargetFrame:SetTargetHealthAndShields(wndTargetFrame, unitTarget)
 			self.strAbsorbTooltip = String_GetWeaselString(Apollo.GetString("TargetFrame_HealthFormat"), Apollo.GetString("FloatText_AbsorbTester"), strAbsorbCurr, strAbsorbMax, String_GetWeaselString(Apollo.GetString("CRB_Percent"), nAbsorbCurr/nAbsorbMax*100))
 		end
 		tTooltipParts[#tTooltipParts + 1] = self.strAbsorbTooltip
+	end
+	
+	if nHealingAbsorbCurr > 0 then
+		if nHealingAbsorbCurr ~= self.nHealingAbsorbCurr then
+			self.strHealingAbsorbTooltip = String_GetWeaselString(Apollo.GetString("TargetFrame_HealingAbsorbFormat"), Apollo.GetString("Character_HealingAbsorbLabel"), strHealingAbsorb)
+		end
+		tTooltipParts[#tTooltipParts + 1] = self.strHealingAbsorbTooltip
 	end
 	
 	--Toggle Visibility based on ui preference
@@ -1404,7 +1442,9 @@ function TargetFrame:SetTargetHealthAndShields(wndTargetFrame, unitTarget)
 		or nShieldCurr ~= self.nShieldCurr
 		or nShieldMax ~= self.nShieldMax
 		or nAbsorbCurr ~= self.nAbsorbCurr
-		or nAbsorbMax ~= self.nAbsorbMax then
+		or nAbsorbMax ~= self.nAbsorbMax
+		or nHealingAbsorbCurr ~= self.nHealingAbsorbCurr then
+		
 		self.wndHealthText:SetTooltip(table.concat(tTooltipParts,"\n"))
 	end
 	
@@ -1416,6 +1456,7 @@ function TargetFrame:SetTargetHealthAndShields(wndTargetFrame, unitTarget)
 	self.nShieldCurr = nShieldCurr
 	self.nAbsorbMax = nAbsorbMax
 	self.nAbsorbCurr = nAbsorbCurr
+	self.nHealingAbsorbCurr = nHealingAbsorbCurr
 end
 
 

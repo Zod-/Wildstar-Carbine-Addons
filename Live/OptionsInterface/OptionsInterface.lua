@@ -172,6 +172,11 @@ function OptionsInterface:OnDocumentReady()
 			strRadioGroup = "HUDTargetOfTargetFrameGroup"
 		},
 		{
+			wnd = self.wndInterface:FindChild("DropToggleUnitTooltip"),
+			nConsoleVar = "hud.unitTooltipDisplay",
+			strRadioGroup = "HUDUnitTooltipGroup"
+		},		
+		{
 			wnd = self.wndInterface:FindChild("DropToggleSkillsBar"),
 			nConsoleVar = "hud.skillsBarDisplay",
  			strRadioGroup = "HUDSkillsGroup",

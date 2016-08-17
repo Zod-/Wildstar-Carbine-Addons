@@ -446,8 +446,12 @@ function MicroStore:OnAddFundsSignal(wndHandler, wndControl, eMouseButton)
 		return
 	end
 	
-	self.tWndRefs.wndModelDialog:Show(true)
-	PreGameLib.Event_FireGenericEvent("ShowDialog", "Funds", self.tWndRefs.wndModelDialog)
+	if StorefrontLib.IsSteam() then
+		StorefrontLib.RedirectToSteamNCoinPurchase()
+	else
+		self.tWndRefs.wndModelDialog:Show(true)
+		PreGameLib.Event_FireGenericEvent("ShowDialog", "Funds", self.tWndRefs.wndModelDialog)
+	end
 end
 
 function MicroStore:OnConvertFundsSignal(wndHandler, wndControl, eMouseButton)

@@ -616,6 +616,19 @@ function Contracts:DrawRewardPoint(wndContainer, wndRewardPoint, rtRewardTrack, 
 			
 			wndItem:FindChild("ItemCantUse"):Show(tItemChoice.itemReward:IsEquippable() and not tItemChoice.itemReward:CanEquip())
 			wndItem:FindChild("ItemIcon"):GetWindowSubclass():SetItem(tItemChoice.itemReward)
+		elseif tItemChoice.eRewardType == RewardTrack.RewardTrackRewardType.AccountItem then
+			local wndItem = Apollo.LoadForm(self.xmlDoc, "RewardPointTooltipItem", wndItemContainer, self)
+
+			if tItemChoice.accountItemReward.monCurrency and tItemChoice.accountItemReward.monCurrency:GetAmount() > 0 then				
+				local tItemInfo = tItemChoice.accountItemReward.monCurrency:GetDenomInfo()[1]
+				
+				wndItem:FindChild("ItemCantUse"):Show(false)
+				wndItem:FindChild("ItemStackCount"):SetText(tItemChoice.accountItemReward.monCurrency:GetAmount())
+				wndItem:FindChild("ItemIcon"):SetSprite(tItemInfo.strSprite)
+			elseif tItemChoice.accountItemReward.item then
+				wndItem:FindChild("ItemCantUse"):Show(tItemChoice.accountItemReward.item:IsEquippable() and not tItemChoice.accountItemReward.item:CanEquip())
+				wndItem:FindChild("ItemIcon"):GetWindowSubclass():SetItem(tItemChoice.accountItemReward.item)
+			end
 		end
 	end
 	wndItemContainer:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.LeftOrTop)
@@ -664,6 +677,25 @@ function Contracts:DrawRewardListEntry(wndEntry, rtRewardTrack, tReward)
 			wndItem:FindChild("ItemCantUse"):Show(tItemChoice.itemReward:IsEquippable() and not tItemChoice.itemReward:CanEquip())
 			wndItem:FindChild("ItemIcon"):GetWindowSubclass():SetItem(tItemChoice.itemReward)
 			wndItem:FindChild("ItemIcon"):SetData(tItemChoice)
+			local wndSelectionBtn = wndItem:FindChild("SelectionBtn")
+			wndSelectionBtn:SetData({ ["tItemChoice"] = tItemChoice, ["wndRewardListClaimBtn"] = wndRewardListClaimBtn })
+			wndSelectionBtn:Enable(tReward.bCanClaim and not tReward.bIsClaimed)
+		elseif tItemChoice.eRewardType == RewardTrack.RewardTrackRewardType.AccountItem then
+			local wndItem = Apollo.LoadForm(self.xmlDoc, "RewardSelectionItem", wndItemContainer, self)
+
+			if tItemChoice.accountItemReward.monCurrency and tItemChoice.accountItemReward.monCurrency:GetAmount() > 0 then				
+				local tItemInfo = tItemChoice.accountItemReward.monCurrency:GetDenomInfo()[1]
+				
+				wndItem:FindChild("ItemCantUse"):Show(false)
+				wndItem:FindChild("ItemStackCount"):SetText(tItemChoice.accountItemReward.monCurrency:GetAmount())
+				wndItem:FindChild("ItemIcon"):SetSprite(tItemInfo.strSprite)
+				wndItem:FindChild("ItemIcon"):SetTooltip(tItemInfo.strName)
+			elseif tItemChoice.accountItemReward.item then
+				wndItem:FindChild("ItemCantUse"):Show(tItemChoice.accountItemReward.item:IsEquippable() and not tItemChoice.accountItemReward.item:CanEquip())
+				wndItem:FindChild("ItemIcon"):GetWindowSubclass():SetItem(tItemChoice.accountItemReward.item)
+				wndItem:FindChild("ItemIcon"):SetData(tItemChoice)
+			end
+			
 			local wndSelectionBtn = wndItem:FindChild("SelectionBtn")
 			wndSelectionBtn:SetData({ ["tItemChoice"] = tItemChoice, ["wndRewardListClaimBtn"] = wndRewardListClaimBtn })
 			wndSelectionBtn:Enable(tReward.bCanClaim and not tReward.bIsClaimed)
@@ -1173,15 +1205,24 @@ end
 
 function Contracts:OnGenerateRewardItemTooltip(wndHandler, wndControl, eToolTipType, x, y)
 	local tData = wndControl:GetData()
+	local tItemData = nil
 	
+	if tData.itemReward then
+		tItemData = tData.itemReward
+	elseif tData.accountItemReward.item then
+		tItemData = tData.accountItemReward.item
+	else
+		return
+	end
+		
 	local tPrimaryTooltipOpts =
 	{
 		bPrimary = true,
-		itemCompare = tData.itemReward:GetEquippedItemForItemType()
+		itemCompare = tItemData:GetEquippedItemForItemType()
 	}
 	
 	if Tooltip ~= nil and Tooltip.GetSpellTooltipForm ~= nil then
-		Tooltip.GetItemTooltipForm(self, wndControl, tData.itemReward, tPrimaryTooltipOpts)
+		Tooltip.GetItemTooltipForm(self, wndControl, tItemData, tPrimaryTooltipOpts)
 	end
 end
 

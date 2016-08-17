@@ -301,6 +301,7 @@ function AddFunds:OnShowNeedsFunds(wndParent, tData)
 		local wndNeedsFunds = Apollo.LoadForm(self.xmlDoc, "PurchaseNeedsFundsGoToTopup", wndParent, self)
 		self.tFundsWndRefs.wndNeedsFunds = wndNeedsFunds
 		self.tFundsWndRefs.wndNeedsFundsNoneAvailableTitle = wndNeedsFunds:FindChild("SectionStack:FundsSection:NoneAvailableTitle")
+		self.tFundsWndRefs.wndNeedsFundsConvertBtn = wndNeedsFunds:FindChild("SectionStack:ConvertBtn")
 	end
 	
 	local tOffer = tData.tOffer
@@ -315,6 +316,10 @@ function AddFunds:OnShowNeedsFunds(wndParent, tData)
 	self.tFundsWndRefs.wndNeedsFundsNoneAvailableTitle:SetText(String_GetWeaselString(Apollo.GetString("Storefront_AdditionalProtoBucksRequiredExact"), monAfter:GetAmount()))
 	
 	self.tFundsWndRefs.wndNeedsFunds:Show(true)
+	
+	local arProtobuckOffers = StorefrontLib.GetProtobucksOffers()
+	local monExternal = AccountItemLib.GetAccountCurrency(AccountItemLib.GetExternalCurrency())
+	self.tFundsWndRefs.wndNeedsFundsConvertBtn:Show(monExternal:GetAmount() > 0 and arProtobuckOffers ~= nil and #arProtobuckOffers > 0)
 end
 
 function AddFunds:OnPurchaseNeedsFundsTopUpBtnSignal(wndHandler, wndControl, eMouseButton)
@@ -324,6 +329,15 @@ function AddFunds:OnPurchaseNeedsFundsTopUpBtnSignal(wndHandler, wndControl, eMo
 	
 	Event_FireGenericEvent("RequestContinueOffer")
 	Event_FireGenericEvent("RequestTopupDialog")
+end
+
+function AddFunds:OnPurchaseNeedsFundsConvertBtnSignal(wndHandler, wndControl, eMouseButton)
+	if wndHandler ~= wndControl then
+		return
+	end
+	
+	Event_FireGenericEvent("RequestContinueOffer")
+	Event_FireGenericEvent("RequestConvertDialog")
 end
 
 ---------------------------------------------------------------------------------------------------

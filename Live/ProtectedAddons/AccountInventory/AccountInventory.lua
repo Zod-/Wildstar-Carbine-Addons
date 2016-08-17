@@ -73,6 +73,7 @@ function AccountInventory:new(o)
 	o.tWndRefs = {}
 	o.arAccountItems = {}
 	o.arPendingAccountItems = {}
+	o.sortAsc = true
 
     return o
 end
@@ -109,6 +110,9 @@ function AccountInventory:OnDocumentReady()
 
 	self.bRefreshInventoryThrottle = false
 
+	self.timerSearch = ApolloTimer.Create(1.0, false, "OnSearchTimer", self)
+	self.timerSearch:Stop()
+	
 	for idx, eAccountCurrencyType in pairs(AccountItemLib.CodeEnumAccountCurrency) do
 		if ktCurrencies[eAccountCurrencyType] == nil then
 			ktCurrencies[eAccountCurrencyType] = {}
@@ -255,6 +259,11 @@ function AccountInventory:SetupMainWindow(wndParent)
 	self.tWndRefs.wndInventoryFilterLootBagBtn = self.tWndRefs.wndMain:FindChild("ContentContainer:Inventory:Container:FilterBtn:FilterDropDown:FilterBtnContainer:InventoryFilterLootBagBtn")
 	self.tWndRefs.wndInventoryFilterToyBtn = self.tWndRefs.wndMain:FindChild("ContentContainer:Inventory:Container:FilterBtn:FilterDropDown:FilterBtnContainer:InventoryFilterToyBtn")
 	
+	self.tWndRefs.wndInventorySearchEditBox = self.tWndRefs.wndMain:FindChild("ContentContainer:Inventory:Search:EditBox")
+	self.tWndRefs.wndInventorySearchClearBtn = self.tWndRefs.wndMain:FindChild("ContentContainer:Inventory:Search:ClearBtn")
+	
+	self.tWndRefs.wndInventorySortDirectionIcon = self.tWndRefs.wndMain:FindChild("ContentContainer:Inventory:Container:Sorting:ChangeSortBtn:SortDirectionIcon")
+	self.tWndRefs.wndInventorySortDirectionLabel = self.tWndRefs.wndMain:FindChild("ContentContainer:Inventory:Container:Sorting:ChangeSortBtn:SortDirectionLabel")
 	
 	self.tWndRefs.wndInventoryFilterBtn:AttachWindow(self.tWndRefs.wndInventoryFilterDropDown)
 
@@ -525,19 +534,31 @@ function AccountInventory:RefreshInventory()
 	local bShowLootBag = self.tWndRefs.wndInventoryFilterLootBagBtn:IsChecked()		
 	local bShowToy = self.tWndRefs.wndInventoryFilterToyBtn:IsChecked()
 	
+	local strSearch = self.tWndRefs.wndInventorySearchEditBox:GetText()
+	local bHasSearch = strSearch ~= nil and strSearch ~= ""
+	local nSearchLength = -1
+	if bHasSearch then
+		nSearchLength = string.len(strSearch)
+		strSearch = string.lower(strSearch)
+	end
+	
 	-- Currencies
 	for idx, tCurrData in pairs(ktCurrencies) do
 		local monCurrency = AccountItemLib.GetAccountCurrency(tCurrData.eType)
 		if not monCurrency:IsZero() and tCurrData.bShowInList then
-			local wndGroup = Apollo.LoadForm(self.xmlDoc, "InventoryPendingGroupForm", self.tWndRefs.wndInventoryGridContainer, self)
-			wndGroup:SetData(-1 * tCurrData.eType) -- Don't need to care about bIsGroup or anything
-			wndGroup:FindChild("ItemButton"):SetText(monCurrency:GetMoneyString(false))
-
-			local wndObject = Apollo.LoadForm(self.xmlDoc, "InventoryPendingGroupItemForm", wndGroup:FindChild("ItemContainer"), self)
-			wndObject:SetData(-1 * tCurrData.eType) -- To avoid collision with ID 1,2,3
-			wndObject:FindChild("Name"):SetText("")
-			wndObject:FindChild("Icon"):SetSprite(tCurrData.strIcon)
-			wndObject:SetTooltip(Apollo.GetString(tCurrData.strTooltip or ""))
+			local strCurrencyName = monCurrency:GetMoneyString(false)
+			
+			if not bHasSearch or string.lower(string.sub(strCurrencyName, 1, nSearchLength)) == strSearch then
+				local wndGroup = Apollo.LoadForm(self.xmlDoc, "InventoryPendingGroupForm", self.tWndRefs.wndInventoryGridContainer, self)
+				wndGroup:SetData(-1 * tCurrData.eType) -- Don't need to care about bIsGroup or anything
+				wndGroup:FindChild("ItemButton"):SetText(strCurrencyName)
+	
+				local wndObject = Apollo.LoadForm(self.xmlDoc, "InventoryPendingGroupItemForm", wndGroup:FindChild("ItemContainer"), self)
+				wndObject:SetData(-1 * tCurrData.eType) -- To avoid collision with ID 1,2,3
+				wndObject:FindChild("Name"):SetText("")
+				wndObject:FindChild("Icon"):SetSprite(tCurrData.strIcon)
+				wndObject:SetTooltip(Apollo.GetString(tCurrData.strTooltip or ""))
+			end
 		end
 	end
 
@@ -552,7 +573,7 @@ function AccountInventory:RefreshInventory()
 		end
 	end
 
-	if nBoomBoxCount > 0 then
+	if nBoomBoxCount > 0 and (not bHasSearch or string.lower(string.sub(tBoomBoxData.item:GetName(), 1, nSearchLength)) == strSearch) then
 		local wndGroup = Apollo.LoadForm(self.xmlDoc, "InventoryPendingGroupForm", self.tWndRefs.wndInventoryGridContainer, self)
 		wndGroup:SetData({bIsGroup = false, tData = tBoomBoxData})
 		wndGroup:FindChild("ItemButton"):SetText(String_GetWeaselString(Apollo.GetString("MarketplaceCommodity_MultiItem"), nBoomBoxCount, tBoomBoxData.item:GetName()))
@@ -564,11 +585,6 @@ function AccountInventory:RefreshInventory()
 		wndObject:SetData(tBoomBoxData)
 		wndObject:FindChild("Name"):SetText("")
 		wndObject:FindChild("Icon"):SetSprite(tBoomBoxData.item:GetIcon())
-	end
-
-	-- Separator if we added at least one
-	if next(self.tWndRefs.wndInventoryGridContainer:GetChildren()) ~= nil then
-		Apollo.LoadForm(self.xmlDoc, "InventoryHorizSeparator", self.tWndRefs.wndInventoryGridContainer, self)
 	end
 
 	-- Account Bound Inventory
@@ -598,7 +614,19 @@ function AccountInventory:RefreshInventory()
 			end
 							
 			if not bHideEntry then
-				self:HelperAddPendingSingleToContainer(self.tWndRefs.wndInventoryGridContainer, tAccountItem)
+				local strName = tAccountItem.name
+				if tAccountItem.item then
+					strName = tAccountItem.item:GetName()
+				elseif tAccountItem.entitlement and Apollo.StringLength(tAccountItem.entitlement.name) > 0 then
+					strName = String_GetWeaselString(Apollo.GetString("AccountInventory_EntitlementPrefix"), tAccountItem.entitlement.name)
+				elseif tAccountItem.accountCurrency then
+					strName = tAccountItem.accountCurrency.monCurrency:GetMoneyString(false)
+				end
+				strName = String_GetWeaselString("$1n", strName)
+			
+				if not bHasSearch or string.lower(string.sub(strName, 1, nSearchLength)) == strSearch then
+					self:HelperAddPendingSingleToContainer(self.tWndRefs.wndInventoryGridContainer, tAccountItem)
+				end
 			end
 		end
 	end
@@ -627,6 +655,7 @@ function AccountInventory:RefreshInventory()
 		end
 		
 		local bHideEntry = true
+		local bHasSearchMatch = false
 		
 		for idx, tAccountItem in pairs(tPendingAccountItemGroup.items) do
 			local tPrereqInfo = self.unitPlayer and self.unitPlayer:GetPrereqInfo(tAccountItem.prereqId) or nil	
@@ -650,17 +679,145 @@ function AccountInventory:RefreshInventory()
 				or (not bShowDye and (eItemType == Item.CodeEnumItemType.Dye or eItemType == Item.CodeEnumItemType.DyeCollection or eItemType == Item.CodeEnumItemType.DyeBag))
 				or (not bShowToy and eItemType == Item.CodeEnumItemType.Toy) 
 			end
-		end 
+			
+			if bHasSearch then
+				local strName = tAccountItem.name
+				if tAccountItem.item then
+					strName = tAccountItem.item:GetName()
+				elseif tAccountItem.entitlement and Apollo.StringLength(tAccountItem.entitlement.name) > 0 then
+					strName = String_GetWeaselString(Apollo.GetString("AccountInventory_EntitlementPrefix"), tAccountItem.entitlement.name)
+				elseif tAccountItem.accountCurrency then
+					strName = tAccountItem.accountCurrency.monCurrency:GetMoneyString(false)
+				end
+				strName = String_GetWeaselString("$1n", strName)
+			
+				bHasSearchMatch = bHasSearchMatch or string.lower(string.sub(strName, 1, nSearchLength)) == strSearch
+			end
+		end
 
 		tPendingAccountItemGroup.bIsPending = true
 		
-		if not bHideEntry then
+		if not bHideEntry and (not bHasSearch or bHasSearchMatch) then
 			self:HelperAddPendingGroupToContainer(self.tWndRefs.wndInventoryGridContainer, tPendingAccountItemGroup)
 		end
 	end
 	
+	local function fnGetNameForSort(tData)
+		local strName = tData.name
+		if tData.item then
+			strName = tData.item:GetName()
+		elseif tData.entitlement and Apollo.StringLength(tData.entitlement.name) > 0 then
+			strName = String_GetWeaselString(Apollo.GetString("AccountInventory_EntitlementPrefix"), tData.entitlement.name)
+		elseif tData.accountCurrency then
+			strName = tData.accountCurrency.monCurrency:GetMoneyString(false)
+		end
+		return String_GetWeaselString("$1n", strName)
+	end
 	
-	self.tWndRefs.wndInventoryGridContainer:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop)
+	local fnSort
+	if self.sortAsc then
+		fnSort = function(wndLeft, wndRight)
+			local tLeft = wndLeft:GetData()
+			local tRight = wndRight:GetData()
+			
+			local strLeftType = type(tLeft)
+			local strRightType = type(tRight)
+			
+			
+			local bLeftUseName = strLeftType == "number" or (not tLeft.tData.bIsPending or #tLeft.tData.items == 1)
+			local bRightUseName = strRightType == "number" or (not tRight.tData.bIsPending or #tRight.tData.items == 1)
+			
+			if bLeftUseName and not bRightUseName then
+				return true
+			end
+			
+			if not bLeftUseName and bRightUseName then
+				return false
+			end
+			
+			if not bLeftUseName and not bRightUseName then
+				return tLeft.tData.index < tRight.tData.index
+			end
+			
+			local strLeftName
+			if strLeftType == "number" then
+				strLeftName = wndLeft:FindChild("ItemButton"):GetText()
+			else
+				local tLeftData = tLeft.tData
+				if tLeftData.bIsPending then
+					strLeftName = fnGetNameForSort(tLeftData.items[1])
+				else
+					strLeftName = fnGetNameForSort(tLeftData)
+				end
+			end
+			
+			local strRightName
+			if strRightType == "number" then
+				strRightName = wndRight:FindChild("ItemButton"):GetText()
+			else
+				local tRightData = tRight.tData
+				if tRightData.bIsPending then
+					strRightName = fnGetNameForSort(tRightData.items[1])
+				else
+					strRightName = fnGetNameForSort(tRightData)
+				end
+			end
+			
+			return strLeftName < strRightName
+		end
+	else
+		fnSort = function(wndLeft, wndRight)
+			local tLeft = wndLeft:GetData()
+			local tRight = wndRight:GetData()
+			
+			local strLeftType = type(tLeft)
+			local strRightType = type(tRight)
+			
+			
+			local bLeftUseName = strLeftType == "number" or (not tLeft.tData.bIsPending or #tLeft.tData.items == 1)
+			local bRightUseName = strRightType == "number" or (not tRight.tData.bIsPending or #tRight.tData.items == 1)
+			
+			if bLeftUseName and not bRightUseName then
+				return true
+			end
+			
+			if not bLeftUseName and bRightUseName then
+				return false
+			end
+			
+			if not bLeftUseName and not bRightUseName then
+				return tLeft.tData.index < tRight.tData.index
+			end
+			
+			local strLeftName
+			if strLeftType == "number" then
+				strLeftName = wndLeft:FindChild("ItemButton"):GetText()
+			else
+				local tLeftData = tLeft.tData
+				if tLeftData.bIsPending then
+					strLeftName = fnGetNameForSort(tLeftData.items[1])
+				else
+					strLeftName = fnGetNameForSort(tLeftData)
+				end
+			end
+			
+			local strRightName
+			if strRightType == "number" then
+				strRightName = wndRight:FindChild("ItemButton"):GetText()
+			else
+				local tRightData = tRight.tData
+				if tRightData.bIsPending then
+					strRightName = fnGetNameForSort(tRightData.items[1])
+				else
+					strRightName = fnGetNameForSort(tRightData)
+				end
+			end
+			
+			return strLeftName > strRightName
+		end
+	end
+	
+	self.tWndRefs.wndInventoryGridContainer:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop, fnSort)
 	self.tWndRefs.wndInventoryGridContainer:RecalculateContentExtents()
 	self.tWndRefs.wndInventoryGridContainer:SetVScrollPos(math.min(nInventoryGridScrollPos, self.tWndRefs.wndInventoryGridContainer:GetVScrollRange()))
 	self.tWndRefs.wndInventoryRefreshAnimation:SetSprite("BK3:UI_BK3_Holo_RefreshReflectionSquare_anim")
@@ -744,6 +901,16 @@ function AccountInventory:RefreshInventoryActions()
 	end
 	self.tWndRefs.wndInventoryTakeBtn:Show(tSelectedData ~= keCreddType or tSelectedPendingData ~= nil)
 	self.tWndRefs.wndInventoryRedeemCreddBtn:Show(tSelectedPendingData == nil and tSelectedData == keCreddType and not AccountItemLib.IsRedeemCREDDInProgress())
+	
+	self.tWndRefs.wndInventorySearchClearBtn:Show(self.tWndRefs.wndInventorySearchEditBox:GetText() ~= nil and self.tWndRefs.wndInventorySearchEditBox:GetText() ~= "")
+	
+	if self.sortAsc then
+		self.tWndRefs.wndInventorySortDirectionIcon:SetSprite("CRB_Basekit:kitIcon_Holo_DownArrow")
+		self.tWndRefs.wndInventorySortDirectionLabel:SetText(Apollo.GetString("AccountInventory_SortDirectionLabelAsc"))
+	else
+		self.tWndRefs.wndInventorySortDirectionIcon:SetSprite("CRB_Basekit:kitIcon_Holo_UpArrow")
+		self.tWndRefs.wndInventorySortDirectionLabel:SetText(Apollo.GetString("AccountInventory_SortDirectionLabelDesc"))
+	end
 end
 
 function AccountInventory:OnPendingInventoryItemCheck(wndHandler, wndControl, eMouseButton)
@@ -1050,5 +1217,41 @@ function AccountInventory:OnFilterLegacyUncheck(wndHandler, wndControl, eMouseBu
 	self.tWndRefs.wndInventoryGridContainer:SetVScrollPos(0)
 end
 
+function AccountInventory:OnSearchTimer()
+	self:RefreshInventory()
+	self.tWndRefs.wndInventoryGridContainer:SetVScrollPos(0)
+end
+
+function AccountInventory:SearchTextChanged(wndHandler, wndControl, strText)
+	if strText == nil or strText == "" then
+		self.timerSearch:Stop()
+		self.tWndRefs.wndInventorySearchClearBtn:Show(false)
+		
+		self:RefreshInventory()
+		self.tWndRefs.wndInventoryGridContainer:SetVScrollPos(0)
+	else
+		self.tWndRefs.wndInventorySearchClearBtn:Show(true)
+		self.timerSearch:Set(0.25, false)
+	end
+end
+
+function AccountInventory:SearchTextClearSignal(wndHandler, wndControl, eMouseButton)
+	self.timerSearch:Stop()
+	
+	self.tWndRefs.wndInventorySearchEditBox:SetText("")
+	self:RefreshInventory()
+	self.tWndRefs.wndInventoryGridContainer:SetVScrollPos(0)
+	
+	self.tWndRefs.wndInventorySearchEditBox:ClearFocus()
+	wndControl:Show(false)
+end
+
+function AccountInventory:ChangeSortSignal(wndHandler, wndControl, eMouseButton)
+	self.sortAsc = not self.sortAsc
+	self:RefreshInventory()
+	self.tWndRefs.wndInventoryGridContainer:SetVScrollPos(0)
+end
+
 local AccountInventoryInst = AccountInventory:new()
 AccountInventoryInst:Init()
+

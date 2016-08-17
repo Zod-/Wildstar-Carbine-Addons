@@ -302,7 +302,7 @@ function Nameplates:OnDocumentReady()
 
 	-- Cache defaults
 	local wndTemp = Apollo.LoadForm(self.xmlDoc, "NameplateNew", nil, self)
-	self.nFrameLeft, self.nFrameTop, self.nFrameRight, self.nFrameBottom = wndTemp:FindChild("Container:Health:HealthBars:MaxHealth"):GetAnchorOffsets()
+	self.nFrameLeft, self.nFrameTop, self.nFrameRight, self.nFrameBottom = wndTemp:FindChild("Container:Health:HealthBars:Health"):GetAnchorOffsets()
 	self.nHealthWidth = self.nFrameRight - self.nFrameLeft
 	wndTemp:Destroy()
 
@@ -533,11 +533,6 @@ function Nameplates:OnUnitCreated(unitNew) -- build main options here
 			certainDeath = wnd:FindChild("TargetAndDeathContainer:CertainDeath"),
 			targetScalingMark = wnd:FindChild("TargetScalingMark"),
 			nameRewardContainer = wnd:FindChild("NameRewardContainer:RewardContainer"),
-			healthMaxShield = wnd:FindChild("Container:Health:HealthBars:MaxShield"),
-			healthShieldFill = wnd:FindChild("Container:Health:HealthBars:MaxShield:ShieldFill"),
-			healthMaxAbsorb = wnd:FindChild("Container:Health:HealthBars:MaxAbsorb"),
-			healthAbsorbFill = wnd:FindChild("Container:Health:HealthBars:MaxAbsorb:AbsorbFill"),
-			healthMaxHealth = wnd:FindChild("Container:Health:HealthBars:MaxHealth"),
 			healthHealthLabel = wnd:FindChild("Container:Health:HealthLabel"),
 			castBarLabel = wnd:FindChild("Container:CastBar:Label"),
 			castBarCastFill = wnd:FindChild("Container:CastBar:CastFill"),
@@ -545,6 +540,13 @@ function Nameplates:OnUnitCreated(unitNew) -- build main options here
 			questRewards = wnd:FindChild("NameRewardContainer:RewardContainer:QuestRewards"),
 			targetMarkerArrow = wnd:FindChild("TargetAndDeathContainer:TargetMarkerArrow"),
 			targetMarker = wnd:FindChild("Container:TargetMarker"),
+			
+			healthBar = wnd:FindChild("Container:Health:HealthBars:Health"),
+			healingAbsorbBar = wnd:FindChild("Container:Health:HealthBars:HealingAbsorb"),
+			absorbBar = wnd:FindChild("Container:Health:HealthBars:Absorb"),
+			shieldBar = wnd:FindChild("Container:Health:HealthBars:Shield"),
+			healthClampMin = wnd:FindChild("Container:Health:HealthBars:HealthClampMin"),
+			healthClampMax = wnd:FindChild("Container:Health:HealthBars:HealthClampMax"),
 		}
 	end
 
@@ -982,7 +984,7 @@ function Nameplates:DrawHealthShieldBar(wndHealth, unitOwner, eDisposition, tNam
 
 	if tNameplate.strUnitType == "Simple" or nHealthCurr == nil then
 		if nHealthCurr ~= tNameplate.nHealthCurr then
-			tNameplate.wnd.healthMaxHealth:SetAnchorOffsets(self.nFrameLeft, self.nFrameTop, self.nFrameRight, self.nFrameBottom)
+			tNameplate.wnd.healthBar:SetAnchorPoints(0, 0, 1, 1)
 			tNameplate.wnd.healthHealthLabel:SetText("")
 		end
 
@@ -998,6 +1000,10 @@ function Nameplates:DrawHealthShieldBar(wndHealth, unitOwner, eDisposition, tNam
 	if nAbsorbMax > 0 then
 		nAbsorbCurr = unitOwner:GetAbsorptionValue() -- Since it doesn't clear when the buff drops off
 	end
+	local nHealingAbsorb = unitOwner:GetHealingAbsorptionValue()
+	local nHealthClampMin = unitOwner:GetHealthFloor()
+	local nHealthClampMax = unitOwner:GetHealthCeiling()
+
 	local nTotalMax = nHealthMax + nShieldMax + nAbsorbMax
 
 	if unitOwner:IsDead() then
@@ -1015,55 +1021,56 @@ function Nameplates:DrawHealthShieldBar(wndHealth, unitOwner, eDisposition, tNam
 	end
 
 	if nHealthTintType ~= tNameplate.nHealthTintType then
-		tNameplate.wnd.healthMaxHealth:SetSprite(nHealthTintType == 3 and "CRB_Nameplates:sprNP_PurpleProg" or karDisposition.tHealthBar[tNameplate.eDisposition])
+		tNameplate.wnd.healthBar:SetFullSprite(nHealthTintType == 3 and "CRB_Nameplates:sprNP_PurpleProg" or karDisposition.tHealthBar[tNameplate.eDisposition])
 		tNameplate.wnd.targetMarker:SetSprite(nHealthTintType == 3 and "CRB_Nameplates:sprNP_BaseSelectedPurple" or karDisposition.tTargetPrimary[tNameplate.eDisposition])
 		tNameplate.nHealthTintType = nHealthTintType
 	end
 
-	local nPointHealthRight = self.nFrameLeft + (self.nHealthWidth * (nHealthCurr / nTotalMax)) -- applied to the difference between L and R
-	local nPointShieldRight = self.nFrameLeft + (self.nHealthWidth * ((nHealthCurr + nShieldMax) / nTotalMax))
-	local nPointAbsorbRight = self.nFrameLeft + (self.nHealthWidth * ((nHealthCurr + nShieldMax + nAbsorbMax) / nTotalMax))
-
-	if nShieldMax > 0 and nShieldMax / nTotalMax < 0.2 then
-		local nMinShieldSize = 0.2 -- HARDCODE: Minimum shield bar length is 20% of total for formatting
-		nPointHealthRight = self.nFrameLeft + (self.nHealthWidth*(math.min(1 - nMinShieldSize, nHealthCurr / nTotalMax)))
-		nPointShieldRight = self.nFrameLeft + (self.nHealthWidth*(math.min(1, (nHealthCurr / nTotalMax) + nMinShieldSize)))
+	if nHealthMax ~= tNameplate.nHealthMax or nShieldMax ~= tNameplate.nShieldMax or nAbsorbMax ~= tNameplate.nAbsorbMax then
+		local nPointHealthRight = nHealthMax / nTotalMax
+		local nPointShieldRight = (nHealthMax + nShieldMax) / nTotalMax
+	
+		if nShieldMax > 0 and nPointShieldRight - nPointHealthRight < 0.2 then
+			nPointHealthRight = nPointHealthRight - (0.2 - (nPointShieldRight - nPointHealthRight))
+		end
+		
+		tNameplate.wnd.healingAbsorbBar:Show(nHealingAbsorb ~= 0)
+		tNameplate.wnd.shieldBar:Show(nShieldMax ~= 0)
+		tNameplate.wnd.absorbBar:Show(nAbsorbMax ~= 0)
+		
+		tNameplate.wnd.healthBar:SetAnchorPoints(0, 0, nPointHealthRight, 1)
+		tNameplate.wnd.healingAbsorbBar:SetAnchorPoints(0, 0, nPointHealthRight, 1)
+		tNameplate.wnd.healthClampMin:SetAnchorPoints(0, 0, nPointHealthRight, 1)
+		tNameplate.wnd.healthClampMax:SetAnchorPoints(0, 0, nPointHealthRight, 1)
+		tNameplate.wnd.shieldBar:SetAnchorPoints(nPointHealthRight, 0, nPointShieldRight, 1)
+		tNameplate.wnd.absorbBar:SetAnchorPoints(nPointShieldRight, 0, 1, 1)
+		
+		tNameplate.wnd.shieldBar:SetMax(nShieldMax)
+		tNameplate.wnd.absorbBar:SetMax(nAbsorbMax)
 	end
-
-	-- Resize
-	tNameplate.wnd.healthShieldFill:EnableGlow(nShieldCurr > 0 and nShieldCurr ~= nShieldMax)
-	if nShieldCurr ~= tNameplate.nShieldCurr or nShieldMax ~= tNameplate.nShieldMax then
-		self:SetBarValue(tNameplate.wnd.healthShieldFill, 0, nShieldCurr, nShieldMax) -- Only the Curr Shield really progress fills
-	end
-	if nAbsorbCurr ~= tNameplate.nAbsorbCurr or nAbsorbMax ~= tNameplate.nAbsorbMax then
-		self:SetBarValue(tNameplate.wnd.healthAbsorbFill, 0, nAbsorbCurr, nAbsorbMax)
-	end
-
-	local bHealthSizeChanged = nHealthCurr ~= tNameplate.nHealthCurr or nTotalMax ~= tNameplate.nTotalMax
-	if bHealthSizeChanged then
-		tNameplate.wnd.healthMaxHealth:SetAnchorOffsets(self.nFrameLeft, self.nFrameTop, nPointHealthRight, self.nFrameBottom)
-		tNameplate.wnd.healthMaxShield:SetAnchorOffsets(nPointHealthRight - 1, self.nFrameTop, nPointShieldRight, self.nFrameBottom)
-		tNameplate.wnd.healthMaxAbsorb:SetAnchorOffsets(nPointShieldRight - 1, self.nFrameTop, nPointAbsorbRight, self.nFrameBottom)
-	end
-
-	-- Bars
-	local bHasHealth = nHealthCurr > 0
-	if bHasHealth ~= tNameplate.wnd.healthShieldFill:IsShown() then
-		tNameplate.wnd.healthShieldFill:Show(bHasHealth)
-	end
-	if bHasHealth ~= tNameplate.wnd.healthMaxHealth:IsShown() then
-		tNameplate.wnd.healthMaxHealth:Show(bHasHealth)
-	end
-
-	local bHasShield = bHasHealth and nShieldMax > 0
-	if bHasShield ~= tNameplate.wnd.healthMaxShield:IsShown() then
-		tNameplate.wnd.healthMaxShield:Show(bHasShield)
-	end
-
-	local bHasAbsorb = bHasHealth and nAbsorbMax > 0
-	if bHasAbsorb ~= tNameplate.wnd.healthMaxAbsorb:IsShown() then
-		tNameplate.wnd.healthMaxAbsorb:Show(bHasAbsorb)
-	end
+	
+	tNameplate.wnd.healthBar:SetMax(nHealthMax + nHealingAbsorb)
+	tNameplate.wnd.healthBar:SetProgress(nHealthCurr, (nHealthMax + nHealingAbsorb) * 4)
+	tNameplate.wnd.healthBar:Show(nHealthCurr > 0)
+	
+	tNameplate.wnd.healingAbsorbBar:SetMax(nHealthMax + nHealingAbsorb)
+	tNameplate.wnd.healingAbsorbBar:SetProgress(nHealthCurr + nHealingAbsorb, (nHealthMax + nHealingAbsorb) * 4)
+	tNameplate.wnd.healingAbsorbBar:Show(nHealthCurr > 0 and nHealingAbsorb > 0)
+	
+	tNameplate.wnd.healthClampMin:SetMax(nHealthMax + nHealingAbsorb)
+	tNameplate.wnd.healthClampMin:SetProgress(nHealthClampMin)
+	tNameplate.wnd.healthClampMin:Show(nHealthClampMin > 0)
+	
+	tNameplate.wnd.healthClampMax:SetMax(nHealthMax + nHealingAbsorb)
+	tNameplate.wnd.healthClampMax:SetProgress(nHealthClampMax)
+	tNameplate.wnd.healthClampMax:Show(nHealthClampMax ~= nHealthMax)
+	
+	tNameplate.wnd.shieldBar:EnableGlow(nShieldCurr > 0 and nShieldCurr ~= nShieldMax)
+	tNameplate.wnd.shieldBar:SetProgress(nShieldCurr, nShieldMax * 4)
+	tNameplate.wnd.shieldBar:Show(nHealthCurr > 0 and nShieldCurr > 0)
+	
+	tNameplate.wnd.absorbBar:SetProgress(nAbsorbCurr, nAbsorbMax * 4)
+	tNameplate.wnd.absorbBar:Show(nHealthCurr > 0 and nAbsorbCurr > 0)
 
 	-- Text
 	if nHealthMax ~= tNameplate.nHealthMax or nHealthCurr ~= tNameplate.nHealthCurr or nShieldCurr ~= tNameplate.nShieldCurr then
@@ -1080,6 +1087,7 @@ function Nameplates:DrawHealthShieldBar(wndHealth, unitOwner, eDisposition, tNam
 
 	tNameplate.nHealthCurr = nHealthCurr
 	tNameplate.nHealthMax = nHealthMax
+	tNameplate.nHealingAbsorb = nHealingAbsorb
 	tNameplate.nShieldCurr = nShieldCurr
 	tNameplate.nShieldMax = nShieldMax
 	tNameplate.nAbsorbCurr = nAbsorbCurr

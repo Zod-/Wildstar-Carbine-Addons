@@ -1326,7 +1326,9 @@ end
 function HousingDecorate:OnOpenDestroyDecorControl(decorDelete, bFromCrate)
 	self.bFromCrate = bFromCrate
 	self.decorToDelete = decorDelete
-	self.wndDestroyDecorFrame = Apollo.LoadForm(self.xmlDoc, "DestroyDecorWindow", nil, self)
+	if self.wndDestroyDecorFrame == nil or not self.wndDestroyDecorFrame:IsValid() then
+		self.wndDestroyDecorFrame = Apollo.LoadForm(self.xmlDoc, "DestroyDecorWindow", nil, self)
+	end
 	self.wndDestroyDecorFrame:Show(true)
 	self.wndDestroyDecorFrame:ToFront()
 end
@@ -1344,7 +1346,7 @@ function HousingDecorate:OnDeleteBtn()
 	if nRow ~= nil then
 		local nCount = self.wndListView:GetCellData( nRow, 2 )
 		if nCount ~= nil and nCount > 0 then
-		    if self.wndDestroyCrateDecorFrame == nil then
+		    if self.wndDestroyCrateDecorFrame == nil or not self.wndDestroyCrateDecorFrame:IsValid() then
 		        self.wndDestroyCrateDecorFrame = Apollo.LoadForm(self.xmlDoc, "PopupDestroyCrateDecor", nil, self)
 		    end
 		    self.wndDestroyCrateDecorFrame:Show(true)

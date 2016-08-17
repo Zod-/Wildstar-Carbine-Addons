@@ -95,15 +95,15 @@ local ktItemQualityToStr =
 
 local ktRowSizeIndexToPixels =
 {
-	[1] = 21,
-	[2] = 23,
-	[3] = 25,
-	[4] = 27,
-	[5] = 30,
-	[6] = 33,
-	[7] = 36,
-	[8] = 39,
-	[9] = 42,
+	[1] = 23,
+	[2] = 25,
+	[3] = 27,
+	[4] = 30,
+	[5] = 33,
+	[6] = 36,
+	[7] = 39,
+	[8] = 42,
+	[9] = 45,
 }
 
 local knNumColumnsMax = 5
@@ -328,7 +328,7 @@ function RaidFrameBase:OnCharacterCreated()
 	self:UpdateLootRules()
 	self:BuildMembers()
 	self:UpdateRaidOptions()
-	
+	self:OnMasterLootUpdate()
 	self.wndMain:Show(true)
 end
 
@@ -350,6 +350,7 @@ function RaidFrameBase:OnFrame()
 			if unitMember ~= nil then
 				local nHealthCurr = unitMember:GetHealth()
 				local nHealthMax = unitMember:GetMaxHealth()
+				local nHealingAbsorb = unitMember:GetHealingAbsorptionValue()
 				local nShieldCurr = unitMember:GetShieldCapacity()
 				local nShieldMax = unitMember:GetShieldCapacityMax()
 				local nAbsorbCurr = 0
@@ -359,17 +360,19 @@ function RaidFrameBase:OnFrame()
 				end
 				local nFocusCurr = unitMember:GetFocus()
 				local nFocusMax = unitMember:GetMaxFocus() or nFocusCurr
+				local nHealthClampMin = unitMember:GetHealthFloor()
+				local nHealthClampMax = unitMember:GetHealthCeiling()
 				
 				if tWndMember.nLastKnownHealth ~= nHealthCurr and (tWndMember.nLastKnownHealth == 0 or nHealthCurr == 0) then
 					self:BuildMember(tWndMember.wndParent, tMember)
 				else
-					self:DrawHealth(tWndMember, nHealthCurr, nHealthMax, nShieldCurr, nShieldMax, nAbsorbCurr, nAbsorbMax, nFocusCurr, nFocusMax, bInstantHealth)
+					self:DrawHealth(tWndMember, nHealthCurr, nHealthMax, nShieldCurr, nShieldMax, nAbsorbCurr, nAbsorbMax, nFocusCurr, nFocusMax, bInstantHealth, nHealingAbsorb, nHealthClampMin, nHealthClampMax)
 				end
 			else
 				if tWndMember.nLastKnownHealth ~= nHealthCurr and (tWndMember.nLastKnownHealth == 0 or nHealthCurr == 0) then
 					self:BuildMember(tWndMember.wndParent, tMember)
 				else
-					self:DrawHealth(tWndMember, tMember.nHealth, tMember.nHealthMax, tMember.nShield, tMember.nShieldMax, tMember.nAbsorption, tMember.nAbsorptionMax, tMember.nMana, tMember.nManaMax, bInstantHealth)
+					self:DrawHealth(tWndMember, tMember.nHealth, tMember.nHealthMax, tMember.nShield, tMember.nShieldMax, tMember.nAbsorption, tMember.nAbsorptionMax, tMember.nMana, tMember.nManaMax, bInstantHealth, tMember.nHealingAbsorb, 0, tMember.nHealthMax)
 				end
 			end
 			
@@ -382,21 +385,25 @@ function RaidFrameBase:OnFrame()
 	self.wndRaidTitle:SetText(String_GetWeaselString(Apollo.GetString("RaidFrame_MemberCount"), nMemberCount - nInvalidOrDeadMembers, nMemberCount))
 end
 
-function RaidFrameBase:DrawHealth(tWndMember, nHealthCurr, nHealthMax, nShieldCurr, nShieldMax, nAbsorbCurr, nAbsorbMax, nFocusCurr, nFocusMax, bInstantProgress)
+function RaidFrameBase:DrawHealth(tWndMember, nHealthCurr, nHealthMax, nShieldCurr, nShieldMax, nAbsorbCurr, nAbsorbMax, nFocusCurr, nFocusMax, bInstantProgress, nHealingAbsorb, nHealthClampMin, nHealthClampMax)
 	local wndMemberBtn = tWndMember.wndMemberBtn
 	local wndHealthBar = tWndMember.wndHealthBar
+	local wndHealingAbsorbBar = tWndMember.wndHealingAbsorbBar
 	local wndAbsorbBar = tWndMember.wndAbsorbBar
 	local wndShieldBar = tWndMember.wndShieldBar
 	local wndFocusBar = tWndMember.wndFocusBar
+	local wndHealthClampMin = tWndMember.wndHealthClampMin
+	local wndHealthClampMax = tWndMember.wndHealthClampMax
 	
 	if nHealthCurr == 0 then
 		nShieldCurr = 0
 		nAbsorbCurr = 0
 		nFocusCurr = 0
+		nHealingAbsorb = 0
 	end
 	
 	tWndMember.nLastKnownHealth = nHealthCurr
-	local nHealthDisplayMax = self.tSettings.bShowFixedShields and nHealthMax or (nHealthMax + nShieldMax + nAbsorbMax)
+	local nHealthDisplayMax = self.tSettings.bShowFixedShields and (nHealthMax + nHealingAbsorb) or (nHealthMax + nHealingAbsorb + nShieldMax + nAbsorbMax)
 	wndHealthBar:SetMax(nHealthDisplayMax)
 	if bInstantProgress then
 		wndHealthBar:SetProgress(nHealthCurr)
@@ -404,10 +411,25 @@ function RaidFrameBase:DrawHealth(tWndMember, nHealthCurr, nHealthMax, nShieldCu
 		wndHealthBar:SetProgress(nHealthCurr, nHealthDisplayMax * 4)
 	end
 	
-	local nShieldAbsorbDisplayMax = self.tSettings.bShowFixedShields and (nShieldMax + nAbsorbMax) or (nHealthMax + nShieldMax + nAbsorbMax)
+	wndHealingAbsorbBar:SetMax(nHealthDisplayMax)
+	if bInstantProgress then
+		wndHealingAbsorbBar:SetProgress(nHealthCurr + nHealingAbsorb)
+	else
+		wndHealingAbsorbBar:SetProgress(nHealthCurr + nHealingAbsorb, nHealthDisplayMax * 4)
+	end
+	
+	wndHealthClampMin:SetMax(nHealthDisplayMax)
+	wndHealthClampMin:SetProgress(nHealthClampMin)
+	wndHealthClampMin:Show(nHealthClampMin > 0)
+	
+	wndHealthClampMax:SetMax(nHealthDisplayMax)
+	wndHealthClampMax:SetProgress(nHealthClampMax)
+	wndHealthClampMax:Show(nHealthClampMax ~= nHealthMax)
+	
+	local nShieldAbsorbDisplayMax = self.tSettings.bShowFixedShields and (nShieldMax + nAbsorbMax) or (nHealthMax + nHealingAbsorb + nShieldMax + nAbsorbMax)
 	
 	wndShieldBar:SetMax(nShieldAbsorbDisplayMax)
-	local nShieldDisplay = self.tSettings.bShowFixedShields and nShieldCurr or (nHealthCurr+nShieldCurr)
+	local nShieldDisplay = self.tSettings.bShowFixedShields and nShieldCurr or (nHealthCurr + nHealingAbsorb + nShieldCurr)
 	if bInstantProgress then
 		wndShieldBar:SetProgress(nShieldDisplay)
 	else
@@ -415,7 +437,7 @@ function RaidFrameBase:DrawHealth(tWndMember, nHealthCurr, nHealthMax, nShieldCu
 	end
 	
 	wndAbsorbBar:SetMax(nShieldAbsorbDisplayMax)
-	local nAbsorbDisplay = self.tSettings.bShowFixedShields and (nShieldCurr+nAbsorbCurr) or (nHealthCurr+nShieldCurr+nAbsorbCurr)
+	local nAbsorbDisplay = self.tSettings.bShowFixedShields and (nShieldCurr + nAbsorbCurr) or (nHealthCurr + nHealingAbsorb + nShieldCurr + nAbsorbCurr)
 	if bInstantProgress then
 		wndAbsorbBar:SetProgress(nAbsorbDisplay)
 	else
@@ -622,6 +644,9 @@ function RaidFrameBase:BuildMember(wndMemberContainer, tMember)
 			wndMember = wndMember,
 			wndMemberBtn = wndMember:FindChild("RaidMemberBtn"),
 			wndHealthBar = wndMember:FindChild("RaidMemberBtn:HealthBar"),
+			wndHealingAbsorbBar = wndMember:FindChild("RaidMemberBtn:HealingAbsorbBar"),
+			wndHealthClampMin = wndMember:FindChild("RaidMemberBtn:HealthClampMin"),
+			wndHealthClampMax = wndMember:FindChild("RaidMemberBtn:HealthClampMax"),
 			wndAbsorbBar = wndMember:FindChild("RaidMemberBtn:AbsorbBar"),
 			wndShieldBar = wndMember:FindChild("RaidMemberBtn:ShieldBar"),
 			wndFocusBar = wndMember:FindChild("RaidMemberBtn:RaidMemberFocusBar"),
@@ -677,6 +702,15 @@ function RaidFrameBase:BuildMember(wndMemberContainer, tMember)
 		nLeft, nTop, nRight, nBottom = tWndMember.wndHealthBar:GetAnchorPoints()
 		tWndMember.wndHealthBar:SetAnchorPoints(nLeft, nTop, 0.9, nBottom)
 		
+		nLeft, nTop, nRight, nBottom = tWndMember.wndHealingAbsorbBar:GetAnchorPoints()
+		tWndMember.wndHealingAbsorbBar:SetAnchorPoints(nLeft, nTop, 0.9, nBottom)
+		
+		nLeft, nTop, nRight, nBottom = tWndMember.wndHealthClampMin:GetAnchorPoints()
+		tWndMember.wndHealthClampMin:SetAnchorPoints(nLeft, nTop, 0.9, nBottom)
+		
+		nLeft, nTop, nRight, nBottom = tWndMember.wndHealthClampMax:GetAnchorPoints()
+		tWndMember.wndHealthClampMax:SetAnchorPoints(nLeft, nTop, 0.9, nBottom)
+		
 		nLeft, nTop, nRight, nBottom = tWndMember.wndAbsorbBar:GetAnchorPoints()
 		tWndMember.wndAbsorbBar:SetAnchorPoints(0.9, nTop, nRight, nBottom)
 		
@@ -688,6 +722,15 @@ function RaidFrameBase:BuildMember(wndMemberContainer, tMember)
 		nLeft, nTop, nRight, nBottom = tWndMember.wndHealthBar:GetAnchorPoints()
 		tWndMember.wndHealthBar:SetAnchorPoints(nLeft, nTop, 1.0, nBottom)
 		
+		nLeft, nTop, nRight, nBottom = tWndMember.wndHealingAbsorbBar:GetAnchorPoints()
+		tWndMember.wndHealingAbsorbBar:SetAnchorPoints(nLeft, nTop, 1.0, nBottom)
+		
+		nLeft, nTop, nRight, nBottom = tWndMember.wndHealthClampMin:GetAnchorPoints()
+		tWndMember.wndHealthClampMin:SetAnchorPoints(nLeft, nTop, 1.0, nBottom)
+		
+		nLeft, nTop, nRight, nBottom = tWndMember.wndHealthClampMax:GetAnchorPoints()
+		tWndMember.wndHealthClampMax:SetAnchorPoints(nLeft, nTop, 1.0, nBottom)
+				
 		nLeft, nTop, nRight, nBottom = tWndMember.wndAbsorbBar:GetAnchorPoints()
 		tWndMember.wndAbsorbBar:SetAnchorPoints(0.0, nTop, nRight, nBottom)
 		
@@ -702,24 +745,32 @@ function RaidFrameBase:BuildMember(wndMemberContainer, tMember)
 	
 	local bOutOfRange = tMember.bOutOfRange or unitMember == nil or not unitMember:IsValid()
 	local bDead = tMember.nHealth == 0 and tMember.nHealthMax ~= 0
+	local wndMemberStatus = wndRaidMemberBtn:FindChild("RaidMemberStatus")
 	if not tMember.bIsOnline then
-		wndRaidMemberBtn:SetSprite("CRB_Raid:sprRaid_HealthProgBar_Red")
+		wndMemberStatus:SetSprite("CRB_Raid:sprRaid_HealthProgBar_Grey")
 		wndName:SetText(String_GetWeaselString(Apollo.GetString("Group_OfflineMember"), tMember.strCharacterName))
 	elseif bDead then
-		wndRaidMemberBtn:SetSprite("CRB_Raid:sprRaid_HealthProgBar_Red")
+		wndMemberStatus:SetSprite("CRB_Raid:sprRaid_HealthProgBar_Red")
 		wndName:SetText(String_GetWeaselString(Apollo.GetString("Group_DeadMember"), tMember.strCharacterName))
 	elseif bOutOfRange and tMember.nMemberIdx ~= 1 then
-		wndRaidMemberBtn:SetSprite("")
+		wndMemberStatus:SetSprite("")
 		wndName:SetText(String_GetWeaselString(Apollo.GetString("Group_OutOfRange"), tMember.strCharacterName))
 	else
-		wndRaidMemberBtn:SetSprite("")
+		wndMemberStatus:SetSprite("")
 		wndName:SetText(tMember.strCharacterName)
 	end
 
 	local nLeft, nTop, nRight, nBottom = wndMember:GetAnchorOffsets()
 	wndMember:SetAnchorOffsets(nLeft, nTop, nRight, nTop + ktRowSizeIndexToPixels[self.tSettings.nRowSize])
 	
-	self:DrawHealth(tWndMember, tMember.nHealth, tMember.nHealthMax, tMember.nShield, tMember.nShieldMax, tMember.nAbsorption, tMember.nAbsorptionMax, tMember.nMana, tMember.nManaMax, true)
+	local nHealthClampMin = 0
+	local nHealthClampMax = tMember.nHealthMax
+	if not bOutOfRange then
+		nHealthClampMin = unitMember:GetHealthFloor()
+		nHealthClampMax = unitMember:GetHealthCeiling()
+	end
+	
+	self:DrawHealth(tWndMember, tMember.nHealth, tMember.nHealthMax, tMember.nShield, tMember.nShieldMax, tMember.nAbsorption, tMember.nAbsorptionMax, tMember.nMana, tMember.nManaMax, true, tMember.nHealingAbsorb, nHealthClampMin, nHealthClampMax)
 end
 
 function RaidFrameBase:OnRaidMemberBtnClick(wndHandler, wndControl, eMouseButton)
@@ -968,6 +1019,7 @@ function RaidFrameBase:OnMasterLootUpdate()
 	self.wndRaidTitle:SetAnchorOffsets(bShowMasterLoot and 40 or 12, nTop, nRight, nBottom)
 
 	self.wndGroupBagBtn:Show(bShowMasterLoot)
+	self.wndGroupBagBtn:FindChild("LootCount"):SetText(bShowMasterLoot and #tMasterLoot or "")
 end
 
 function RaidFrameBase:UpdateLootRules()

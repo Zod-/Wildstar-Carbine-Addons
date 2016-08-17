@@ -162,7 +162,8 @@ function Storefront:OnDocumentReady()
 	Apollo.RegisterEventHandler("RequestHeaderDisplay", "OnRequestHeaderDisplay", self)
 	Apollo.RegisterEventHandler("RequestContinueShopping", "OnContinueShoppingSignal", self)
 	Apollo.RegisterEventHandler("RequestContinueOffer", "OnRequestContinueOffer", self)
-	Apollo.RegisterEventHandler("RequestTopupDialog", "OnAddFundsSignal", self)	
+	Apollo.RegisterEventHandler("RequestTopupDialog", "OnAddFundsSignal", self)
+	Apollo.RegisterEventHandler("RequestConvertDialog", "OnConvertFundsSignal", self)
 
 	self.timerBannerRotation = ApolloTimer.Create(10, true, "OnBannerRotationTimer", self)
 	self.timerBannerRotation:Stop()
@@ -175,6 +176,7 @@ function Storefront:OnDocumentReady()
 	
 	self.tSortingOptions = {}
 	self.nFilterOptions = 0
+	self.bPrefAltCurrency = false
 	self.timerToMax = ApolloTimer.Create(1.0, false, "OnMaximumReached", self)
 	self.timerToMax:Stop()
 
@@ -1691,7 +1693,7 @@ function Storefront:SetupOffer(tOffer, nVariant, nCategoryId)
 	-- Price Alternative
 	if not bCantPurchasePremium and tOfferInfo.tPrices.tAlternative ~= nil then
 		self.tWndRefs.wndCenterPurchaseConfirmCurrency2:SetAmount(tOfferInfo.tPrices.tAlternative.monPrice, true)
-		self.tWndRefs.wndCenterPurchaseConfirmCurrency2Btn:SetCheck(tOfferInfo.tPrices.tPremium == nil)
+		self.tWndRefs.wndCenterPurchaseConfirmCurrency2Btn:SetCheck(tOfferInfo.tPrices.tPremium == nil or self.bPrefAltCurrency)
 		self.tWndRefs.wndCenterPurchaseConfirmCurrency2Btn:SetData({ tOffer = tOffer, tOfferInfo = tOfferInfo, tPrice = tOfferInfo.tPrices.tAlternative, nVariant = nVariant, nCategoryId = nCategoryId })
 		self.tWndRefs.wndCenterPurchaseConfirmCurrency2Btn:Enable(true)
 		if self.tWndRefs.wndCenterPurchaseConfirmCurrency2Btn:IsChecked() then
@@ -1703,7 +1705,7 @@ function Storefront:SetupOffer(tOffer, nVariant, nCategoryId)
 	-- Price Premium
 	if not bCantPurchasePremium and tOfferInfo.tPrices.tPremium ~= nil then
 		self.tWndRefs.wndCenterPurchaseConfirmCurrency1:SetAmount(tOfferInfo.tPrices.tPremium.monPrice, true)
-		self.tWndRefs.wndCenterPurchaseConfirmCurrency1Btn:SetCheck(true)
+		self.tWndRefs.wndCenterPurchaseConfirmCurrency1Btn:SetCheck(not self.bPrefAltCurrency or tOfferInfo.tPrices.tAlternative == nil)
 		self.tWndRefs.wndCenterPurchaseConfirmCurrency1Btn:SetData({ tOffer = tOffer, tOfferInfo = tOfferInfo, tPrice = tOfferInfo.tPrices.tPremium, nVariant = nVariant, nCategoryId = nCategoryId })
 		self.tWndRefs.wndCenterPurchaseConfirmCurrency1Btn:Enable(true)
 		if self.tWndRefs.wndCenterPurchaseConfirmCurrency1Btn:IsChecked() then
@@ -2583,6 +2585,7 @@ function Storefront:OnPurchaseWithCheck(wndHandler, wndControl, eMouseButton)
 		self.tWndRefs.wndCenterPurchaseConfirmFinalizeBtn:SetText(String_GetWeaselString(Apollo.GetString("Storefront_PurchaseWithOmnibits")))
 		self.tWndRefs.wndCenterPurchaseConfirmGiftBtn:SetTooltip(String_GetWeaselString(Apollo.GetString("Storefront_PurchaseWithOmnibitsTooltip")))
 		self.tWndRefs.wndCenterPurchaseConfirmGiftBtn:Enable(false)
+		self.bPrefAltCurrency = true
 	else
 		self.tWndRefs.wndCenterPurchaseConfirmFinalizeBtn:SetText(String_GetWeaselString(Apollo.GetString("Storefront_PurchaseWithCurrency"), strCurrencyName))
 		
@@ -2593,6 +2596,7 @@ function Storefront:OnPurchaseWithCheck(wndHandler, wndControl, eMouseButton)
 			self.tWndRefs.wndCenterPurchaseConfirmGiftBtn:SetTooltip(Apollo.GetString("Storefront_GiftingTwoFactorRequired"))
 			self.tWndRefs.wndCenterPurchaseConfirmGiftBtn:Enable(false)
 		end
+		self.bPrefAltCurrency = false
 	end
 
 	if not tOfferInfo.bCanPurchase then

@@ -438,9 +438,13 @@ function GroupDisplay:LoadPortrait(idx)
 		wndName 					= wndHud:FindChild("Name"),
 		wndClass 					= wndHud:FindChild("Class"),
 		wndHealth 					= wndHud:FindChild("Health"),
+		wndHealingAbsorb			= wndHud:FindChild("HealingAbsorb"),
+		wndHealthClampMin			= wndHud:FindChild("HealthClampMin"),
+		wndHealthClampMax			= wndHud:FindChild("HealthClampMax"),
 		wndShields 					= wndHud:FindChild("Shields"),
 		wndMaxShields 				= wndHud:FindChild("MaxShields"),
 		wndMaxAbsorb 				= wndHud:FindChild("MaxAbsorbBar"),
+		wndCurrAbsorb	 			= wndHud:FindChild("CurrAbsorbBar"),
 		wndLowHealthFlash			= wndHud:FindChild("LowHealthFlash"),
 		wndPathIcon 				= wndHud:FindChild("PathIcon"),
 		wndOffline					= wndHud:FindChild("Offline"),
@@ -915,34 +919,64 @@ function GroupDisplay:HelperUpdateHealth(tPortrait, tMemberInfo)
 	if nAbsorbMax > 0 then
 		nAbsorbCurr = tMemberInfo.nAbsorption
 	end
+	local nHealingAbsorb = tMemberInfo.nHealingAbsorb
+	
+	local nHealthClampMin = 0
+	local nHealthClampMax = 0
+	local unitMember = GroupLib.GetUnitForGroupMember(tMemberInfo.nMemberIdx)
+	if unitMember ~= nil and unitMember:IsValid() then
+		nHealthClampMin = unitMember:GetHealthFloor()
+		nHealthClampMax = unitMember:GetHealthCeiling()
+	end
 
 	local nTotalMax = nHealthMax + nShieldMax + nAbsorbMax
 	tPortrait.wndLowHealthFlash:Show(nHealthCurr ~= 0 and nHealthCurr / nHealthMax <= 0.25)
-
-	-- Scaling
-	local nPointHealthRight = self.nFrameRight * (nHealthCurr / nTotalMax)
-	local nPointShieldRight = self.nFrameRight * ((nHealthCurr + nShieldMax) / nTotalMax)
-	local nPointAbsorbRight = self.nFrameRight * ((nHealthCurr + nShieldMax + nAbsorbMax) / nTotalMax)
-
-	if nShieldMax > 0 and nShieldMax / nTotalMax < 0.2 then
-		local nMinShieldSize = 0.2 -- HARDCODE: Minimum shield bar length is 20% of total for formatting
-		nPointHealthRight = self.nFrameRight * math.min(1 - nMinShieldSize, nHealthCurr / nTotalMax) -- Health is normal, but caps at 80%
-		nPointShieldRight = self.nFrameRight * math.min(1, (nHealthCurr / nTotalMax) + nMinShieldSize) -- If not 1, the size is thus healthbar + hard minimum
+	
+	if tPortrait.nHealthMax ~= nHealthMax or tPortrait.nAbsorbMax ~= nAbsorbMax or tPortrait.nShieldMax ~= nShieldMax then
+		local nPointHealthRight = nHealthMax / nTotalMax
+		local nPointShieldRight = (nHealthMax + nShieldMax) / nTotalMax
+	
+		if nShieldMax > 0 and nPointShieldRight - nPointHealthRight < 0.2 then
+			nPointHealthRight = nPointHealthRight - (0.2 - (nPointShieldRight - nPointHealthRight))
+		end	
+	
+		tPortrait.wndHealth:SetAnchorPoints(0, 0, nPointHealthRight, 1)
+		tPortrait.wndHealingAbsorb:SetAnchorPoints(0, 0, nPointHealthRight, 1)
+		tPortrait.wndHealthClampMin:SetAnchorPoints(0, 0, nPointHealthRight, 1)
+		tPortrait.wndHealthClampMax:SetAnchorPoints(0, 0, nPointHealthRight, 1)
+		tPortrait.wndMaxShields:SetAnchorPoints(nPointHealthRight, 0, nPointShieldRight, 1)
+		tPortrait.wndMaxAbsorb:SetAnchorPoints(nPointShieldRight, 0, 1, 1)
+		
+		tPortrait.wndShields:SetMax(nShieldMax)
+		tPortrait.wndCurrAbsorb:SetMax(nAbsorbMax)
 	end
-
-	-- Resize
+	
+	tPortrait.wndHealth:SetMax(nHealthMax + nHealingAbsorb)
+	tPortrait.wndHealth:SetProgress(nHealthCurr, (nHealthMax + nHealingAbsorb) * 4)
+	tPortrait.wndHealth:Show(nHealthCurr > 0)
+	
+	tPortrait.wndHealingAbsorb:SetMax(nHealthMax + nHealingAbsorb)
+	tPortrait.wndHealingAbsorb:SetProgress(nHealthCurr + nHealingAbsorb, (nHealthMax + nHealingAbsorb) * 4)
+	tPortrait.wndHealingAbsorb:Show(nHealthCurr > 0 and nHealingAbsorb > 0)
+	
+	tPortrait.wndHealthClampMin:SetMax(nHealthMax + nHealingAbsorb)
+	tPortrait.wndHealthClampMin:SetProgress(nHealthClampMin)
+	tPortrait.wndHealthClampMin:Show(nHealthClampMin > 0)
+	
+	tPortrait.wndHealthClampMax:SetMax(nHealthMax + nHealingAbsorb)
+	tPortrait.wndHealthClampMax:SetProgress(nHealthClampMax)
+	tPortrait.wndHealthClampMax:Show(nHealthClampMax ~= nHealthMax)
+	
 	tPortrait.wndShields:EnableGlow(nShieldCurr > 0 and nShieldCurr ~= nShieldMax)
-	self:SetBarValue(tPortrait.wndShields, 0, nShieldCurr, nShieldMax) -- Only the Curr Shield really progress fills
-	self:SetBarValue(tPortrait.wndMaxAbsorb:FindChild("CurrAbsorbBar"), 0, nAbsorbCurr, nAbsorbMax)
-	tPortrait.wndHealth:SetAnchorOffsets(self.nFrameLeft, self.nFrameTop, nPointHealthRight, self.nFrameBottom)
-	tPortrait.wndMaxShields:SetAnchorOffsets(nPointHealthRight - 10, self.nMaxShieldFrameTop, nPointShieldRight + 6, self.nMaxShieldFrameBottom)
-	tPortrait.wndMaxAbsorb:SetAnchorOffsets(nPointShieldRight - 14, self.nMaxAbsorbFrameTop, nPointAbsorbRight + 6, self.nMaxAbsorbFrameBottom)
-
-	-- Bars
-	tPortrait.wndShields:Show(nHealthCurr > 0)
-	tPortrait.wndHealth:Show(nHealthCurr / nTotalMax > 0.01) -- TODO: Temp The sprite draws poorly this low.
-	tPortrait.wndMaxShields:Show(nHealthCurr > 0 and nShieldMax > 0)
-	tPortrait.wndMaxAbsorb:Show(nHealthCurr > 0 and nAbsorbMax > 0)
+	tPortrait.wndShields:SetProgress(nShieldCurr, nShieldMax * 4)
+	tPortrait.wndMaxShields:Show(nHealthCurr > 0 and nShieldCurr > 0 and nShieldMax ~= 0)
+	
+	tPortrait.wndCurrAbsorb:SetProgress(nAbsorbCurr, nAbsorbMax * 4)
+	tPortrait.wndMaxAbsorb:Show(nHealthCurr > 0 and nAbsorbCurr > 0 and nAbsorbMax ~= 0)
+	
+	tPortrait.nHealthMax = nHealthMax
+	tPortrait.nAbsorbMax = nAbsorbMax
+	tPortrait.nShieldMax = nShieldMax
 end
 
 function GroupDisplay:SetBarValue(wndBar, fMin, fValue, fMax)
@@ -1109,24 +1143,24 @@ function GroupDisplay:OnGroupMemberFlags(nMemberIndex, bIsFromPromotion, tChange
 
 	local bIsFromPromotionOrRaidAssistant = bIsFromPromotion or tChangedFlags.bRaidAssistant
 
-	if tChangedFlags.bCanKick then
+	if tChangedFlags.bCanKick and not bIsFromPromotionOrRaidAssistant then
 		local strMsg = ""
 		local strPermission = Apollo.GetString("Group_KickPermission")
 
-		if not bIsFromPromotionOrRaidAssistant then
-			if tMember.bCanKick then
-				strMsg = Apollo.GetString("Group_Enabled")
-			else
-				strMsg = Apollo.GetString("Group_Disabled")
-			end
-
-			if bSelf then
-				strMsg = String_GetWeaselString(Apollo.GetString("Group_PermissionsChangedSelf"), strPermission, strMsg)
-			elseif GroupLib.AmILeader() then
-				strMsg = String_GetWeaselString(Apollo.GetString("Group_PermissionsChangedOther"), strMsg, tMember.strCharacterName, strPermission)
-			end
-			self:AddToQueue(ktMessageIcon.Promoted, strMsg)
+		if tMember.bCanKick then
+			strMsg = Apollo.GetString("Group_Enabled")
+		else
+			strMsg = Apollo.GetString("Group_Disabled")
 		end
+
+		if bSelf then
+			strMsg = String_GetWeaselString(Apollo.GetString("Group_PermissionsChangedSelf"), strPermission, strMsg)
+		elseif GroupLib.AmILeader() then
+			strMsg = String_GetWeaselString(Apollo.GetString("Group_PermissionsChangedOther"), strMsg, tMember.strCharacterName, strPermission)
+		else -- group member
+			strMsg = String_GetWeaselString(Apollo.GetString("Group_PermissionsChangedMember"), tMember.strCharacterName, strPermission, strMsg)
+		end
+		self:AddToQueue(ktMessageIcon.Promoted, strMsg)
 	end
 
 	if tChangedFlags.bCanInvite and not bIsFromPromotionOrRaidAssistant then
@@ -1143,6 +1177,8 @@ function GroupDisplay:OnGroupMemberFlags(nMemberIndex, bIsFromPromotion, tChange
 			strMsg = String_GetWeaselString(Apollo.GetString("Group_PermissionsChangedSelf"), strPermission, strMsg)
 		elseif GroupLib.AmILeader() then
 			strMsg = String_GetWeaselString(Apollo.GetString("Group_PermissionsChangedOther"), strMsg, tMember.strCharacterName, strPermission)
+		else -- group member
+			strMsg = String_GetWeaselString(Apollo.GetString("Group_PermissionsChangedMember"), tMember.strCharacterName, strPermission, strMsg)
 		end
 		self:AddToQueue(ktMessageIcon.Promoted, strMsg)
 	end

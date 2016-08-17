@@ -55,7 +55,7 @@ function Collectables:OnDocLoaded()
 	Apollo.RegisterEventHandler("InterfaceMenuListHasLoaded",				"OnInterfaceMenuLoaded", self)
 	self:OnInterfaceMenuLoaded()
 
-	Apollo.RegisterEventHandler("ToggleCollectiblesWindow",					"OnToggleCollectiblesWindow", self)
+	Apollo.RegisterEventHandler("GenericEvent_ToggleCollectiblesWindow",	"OnToggleCollectiblesWindow", self)
 	Apollo.RegisterEventHandler("GenericEvent_RegisterCollectableWindow",	"RegisterAddon", self)
 	Apollo.RegisterEventHandler("GenericEvent_OpenCollectables",			"OnCollectablesOn", self)
 	Apollo.RegisterEventHandler("GenericEvent_RequestCollectablesReady",	"OnRequestReady", self)
@@ -75,7 +75,7 @@ function Collectables:OnWindowManagementReady()
 end
 
 function Collectables:OnInterfaceMenuLoaded()
-	local tData = {"GenericEvent_OpenCollectables", "", "Icon_Windows32_UI_CRB_InterfaceMenu_MountCustomization"}
+	local tData = {"GenericEvent_ToggleCollectiblesWindow", "", "Icon_Windows32_UI_CRB_InterfaceMenu_MountCustomization"}
 	Event_FireGenericEvent("InterfaceMenuList_NewAddOn", Apollo.GetString("Collectables_Header"), tData)
 end
 
@@ -154,7 +154,7 @@ function Collectables:OnOpenTab(strEvent)
 end
 
 function Collectables:OnToggleCollectiblesWindow()	
-	if self.wndMain ~= nil and self.wndMain:IsValid() and self.wndMain:IsShown() then
+	if self.wndMain and self.wndMain:IsShown() then
 		self:OnClose()
 	else
 		self:OnCollectablesOn()

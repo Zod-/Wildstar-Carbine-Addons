@@ -443,7 +443,7 @@ function ToolTips:UnitTooltipGen(wndContainer, unitSource, strProp)
 	if not self.wndUnitTooltip or not self.wndUnitTooltip:IsValid() then
 		self.wndUnitTooltip = wndContainer:LoadTooltipForm("ui\\Tooltips\\TooltipsForms.xml", "UnitTooltip_Base", self)
 	end
-
+	
 	local wndTopDataBlock 			= self.wndUnitTooltip:FindChild("TopDataBlock")
 	local wndMiddleDataBlock 		= self.wndUnitTooltip:FindChild("MiddleDataBlock") -- THIS GETS USED FOR A LOT!!
 	local wndTargetClassBlock 		= self.wndUnitTooltip:FindChild("TargetClassBlock")
@@ -451,10 +451,10 @@ function ToolTips:UnitTooltipGen(wndContainer, unitSource, strProp)
 	local wndTopRight				= wndTopDataBlock:FindChild("RightSide")
 	local wndMiddleDataBlockContent = wndMiddleDataBlock:FindChild("MiddleDataBlockContent")
 	local wndTargetClassBlockContent = wndTargetClassBlock:FindChild("TargetClassBlockContent")
-	local wndPathIcon 				= wndTopRight:FindChild("PathIcon")
-	local wndClassIcon 				= wndTopRight:FindChild("ClassIcon")
-	local wndClassBack 				= wndTopRight:FindChild("ClassBack")
 	local wndPathBack 				= wndTopRight:FindChild("PathBack")
+	local wndPathIcon 				= wndPathBack:FindChild("PathIcon")
+	local wndClassBack 				= wndTopRight:FindChild("ClassBack")
+	local wndClassIcon 				= wndClassBack:FindChild("ClassIcon")
 	local wndBreakdownString 		= wndBottomDataBlock:FindChild("BreakdownString")
 	local wndUpsellIcon				= wndBreakdownString:FindChild("UpsellIcon")
 	local wndRank					= wndTargetClassBlock:FindChild("Rank")
@@ -463,7 +463,7 @@ function ToolTips:UnitTooltipGen(wndContainer, unitSource, strProp)
 	local wndAffiliationString 		= self.wndUnitTooltip:FindChild("AffiliationString")
 
 	local wndGroupBack 			= wndTopRight:FindChild("GroupBack")
-	local wndGroupIcon 			= wndTopRight:FindChild("GroupIcon")
+	local wndGroupIcon 			= wndGroupBack:FindChild("GroupIcon")
 
 	wndGroupIcon:Show(false)
 	wndGroupBack:Show(false)
@@ -476,7 +476,7 @@ function ToolTips:UnitTooltipGen(wndContainer, unitSource, strProp)
 
 	-- Basics
 	local bShownLevel = true
-	wndDispositionFrame:SetSprite(karDispositionFrameSprites[eDisposition] or "")
+	wndDispositionFrame:SetBGColor(karDispositionColors[eDisposition] or "")
 
 	-- Unit to player affiliation
 	local strAffiliationName = unitSource:GetAffiliationName() or ""
@@ -543,7 +543,7 @@ function ToolTips:UnitTooltipGen(wndContainer, unitSource, strProp)
 
 		wndPathIcon:SetSprite(ktPathToIcon[ePathType])
 		wndClassIcon:SetSprite(ktClassToIcon[eClassType])
-
+		wndTopRight:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.RightOrBottom)
 		-- Player specific affiliation override
 		local strPlayerAffiliationName = unitSource:GetGuildName()
 		if strPlayerAffiliationName then
@@ -610,15 +610,6 @@ function ToolTips:UnitTooltipGen(wndContainer, unitSource, strProp)
 			wndReward:FindChild("Label"):SetText(ktRewardToString[Unit.CodeEnumRewardInfoType.Rival])
 			wndMiddleDataBlockContent:Show(true)
 		end
-
-		local wndInfo = Apollo.LoadForm("ui\\Tooltips\\TooltipsForms.xml", "UnitTooltip_Info", wndMiddleDataBlockContent, self)
-		wndInfo:FindChild("Label"):SetText(Apollo.GetString("Tooltips_RealmUnknown"))
-		self.tRealmNamePendingCallbacks[unitSource:GetId()] = function(strRealmName)
-			if wndInfo:IsValid() then
-				wndInfo:FindChild("Label"):SetText(String_GetWeaselString(Apollo.GetString("Tooltips_RealmFrom"), strRealmName))
-			end
-		end
-		unitSource:RequestRealmName()
 
 		wndMiddleDataBlockContent:Show(true)
 
@@ -862,7 +853,7 @@ function ToolTips:UnitTooltipGen(wndContainer, unitSource, strProp)
 	if not bSkipFormatting then
 		if bNoDisposition then
 			wndNameLevelString:SetTextColor(ApolloColor.new("UI_TextHoloBodyHighlight"))
-			wndDispositionFrame:SetSprite("sprTooltip_SquareFrame_UnitTeal")
+			wndDispositionFrame:SetBGColor(ApolloColor.new("UI_TextHoloBodyHighlight"))
 		end
 
 		wndClassBack:Show(wndClassIcon:IsShown())
@@ -923,7 +914,7 @@ function ToolTips:UnitTooltipGen(wndContainer, unitSource, strProp)
 		if bShowMiddleBlock then
 			local nInnerHeight = wndMiddleDataBlockContent:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop)
 			nBlockHeight = nInnerHeight + knDataWindowPadding
-			nHeight = nHeight + nBlockHeight * 2
+			nHeight = nHeight + nBlockHeight
 
 			local nLeft, nTop, nRight, nBottom = wndMiddleDataBlockContent:GetAnchorOffsets()
 			wndMiddleDataBlockContent:SetAnchorOffsets(nLeft, nTop, nRight, nTop + nInnerHeight)
@@ -960,7 +951,6 @@ function ToolTips:UnitTooltipGen(wndContainer, unitSource, strProp)
 	end
 
 	self.unitTooltip = unitSource
-
 	wndContainer:SetTooltipForm(wndTooltipForm)
 	if bHideFormSecondary then
 		wndContainer:SetTooltipFormSecondary(nil)
@@ -1204,6 +1194,17 @@ local function ItemTooltipFactionReqHelper(wndParent, tItemInfo)
 		local strColor = tItemInfo.tFactionRequirement.bRequirementMet and kUIGreen or kUIRed
 
 		wnd:SetAML(string.format("<P Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</P>", strColor, strFaction))
+		wnd:SetHeightToContentHeight()
+	end
+end
+
+-- #############################
+
+local function ItemTooltipUseReqHelper(wndParent, tItemInfo)
+	if tItemInfo.tUseRequirement and not tItemInfo.tUseRequirement.bRequirementMet then
+		local wnd = Apollo.LoadForm("ui\\Tooltips\\TooltipsForms.xml", "SimpleRowSmallML", wndParent)
+
+		wnd:SetAML(string.format("<P Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</P>", kUIRed, tItemInfo.tUseRequirement.strFailure))
 		wnd:SetHeightToContentHeight()
 	end
 end
@@ -2155,6 +2156,7 @@ local function GenerateItemTooltipForm(luaCaller, wndParent, itemSource, tFlags,
 		ItemTooltipBasicStatsHelper(wndItems, itemOne, itemTwo)
 		ItemTooltipClassReqHelper(wndItems, itemOne)
 		ItemTooltipFactionReqHelper(wndItems, itemOne)
+		ItemTooltipUseReqHelper(wndItems, itemOne)
 		ItemTooltipSpellReqHelper(wndItems, itemOne)
 		ItemTooltipSpecialReqHelper(wndItems, itemOne)
 		ItemTooltipSchematicHelper(wndItems, itemOne)
@@ -2730,11 +2732,42 @@ end
 
 function ToolTips:OnGenerateWorldObjectTooltip( wndHandler, wndControl, eToolTipType, unit, strPropName )
 	if eToolTipType == Tooltip.TooltipGenerateType_UnitOrProp then
+		-- Check settings
+		local nVisibility = Apollo.GetConsoleVariable("hud.unitTooltipDisplay")
+		local unitPlayer = GameLib.GetPlayerUnit()
+	
+		if nVisibility == 2 then --always off
+			return
+		elseif nVisibility == 3 then --on in combat
+			if unitPlayer and not unitPlayer:IsInCombat() then -- don't generate while not in combat
+				return
+			end
+		elseif nVisibility == 4 then --off in combat
+			if unitPlayer and unitPlayer:IsInCombat() then -- don't generate while in combat
+				return
+			end
+		end		
 		self:UnitTooltipGen(GameLib.GetWorldTooltipContainer(), unit, strPropName)
 	end
 end
 
 function ToolTips:OnMouseOverUnitChanged(unit)
+	-- Check settings
+	local nVisibility = Apollo.GetConsoleVariable("hud.unitTooltipDisplay")
+	local unitPlayer = GameLib.GetPlayerUnit()
+
+	if nVisibility == 2 then --always off
+		return
+	elseif nVisibility == 3 then --on in combat
+		if unitPlayer and not unitPlayer:IsInCombat() then -- don't generate while not in combat
+			return
+		end
+	elseif nVisibility == 4 then --off in combat
+		if unitPlayer and unitPlayer:IsInCombat() then -- don't generate while in combat
+			return
+		end
+	end	
+	
 	self:UnitTooltipGen(GameLib.GetWorldTooltipContainer(), unit, "")
 end
 

@@ -444,7 +444,7 @@ function PublicEventTracker:DrawEvent(peEvent)
 	wndEventStatsBacker:SetData(peEvent)
 
 	-- Event Title
-	local strTitle = string.format("<T Font=\"CRB_InterfaceMedium\" TextColor=\"%s\">%s</T>", kstrLightGrey, peEvent:GetName())
+	local strTitle = string.format('<T Font="CRB_InterfaceMedium" TextColor="%s">%s</T>', kstrLightGrey, peEvent:GetName())
 	if peEvent:GetTotalTime() > 0 and peEvent:IsActive() then
 		strTitle = self:HelperPrefixTimeString(math.max(0, math.floor((peEvent:GetTotalTime() - peEvent:GetElapsedTime()) / 1000)), strTitle)
 		self.tTimedEvents[peEvent:GetName()] = { peEvent = peEvent, wndTitleFrame = wndEvent:FindChild("TitleText") }
@@ -583,6 +583,11 @@ function PublicEventTracker:HelperDrawStandardObjective(peEvent, peoObjective)
 	wndQuestObjectiveBtn:SetTooltip(self:BuildEventObjectiveTitleString(peEvent, peoObjective, true))
 	wndObjective:FindChild("ObjectiveText"):SetAML(self:BuildEventObjectiveTitleString(peEvent, peoObjective, false))
 
+	if peoObjective:GetObjectiveType() == PublicEventObjective.PublicEventObjectiveType_HardMode then
+		wndObjective:FindChild("ObjectiveText"):SetSprite("IconSprites:Icon_Windows16_UI_CRB_PVPHardMode")
+		wndObjective:FindChild("ObjectiveText"):SetTooltip(Apollo.GetString("PublicEventTracker_HardModeObjective"))
+	end
+	
 	if peoObjective:GetTotalTime() > 0 then
 		self.tTimedEventObjectives[peoObjective:GetObjectiveId()] = { peEvent = peEvent, peoObjective = peoObjective, wndObjective = wndObjective }
 		self.timerRealTimeUpdate:Start()
@@ -733,9 +738,9 @@ function PublicEventTracker:BuildEventObjectiveTitleString(peEvent, peoObjective
 	local strResult = ""
 	local strShortText = peoObjective:GetShortDescription()
 	if strShortText and Apollo.StringLength(strShortText) > 0 and not bIsTooltip then
-		strResult = string.format("<T Font=\"CRB_InterfaceMedium\">%s</T>", strShortText)
+		strResult = string.format('<T Font="CRB_InterfaceMedium">%s</T>', strShortText)
 	else
-		strResult = string.format("<T Font=\"CRB_InterfaceMedium\">%s</T>", peoObjective:GetDescription())
+		strResult = string.format('<T Font="CRB_InterfaceMedium">%s</T>', peoObjective:GetDescription())
 	end
 
 	-- Progress Brackets and Time if Active

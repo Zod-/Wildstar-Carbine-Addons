@@ -116,7 +116,7 @@ function Runecrafting:OnDocumentReady()
 	Apollo.RegisterEventHandler("TradeskillEngravingStationClose", 				"OnTradeskillEngravingStationClose", self)
 
 	Apollo.RegisterEventHandler("GenericEvent_RightClick_OpenEngraving", 		"InitEditWindow", self)
-	Apollo.RegisterEventHandler("GenericEvent_InterfaceMenu_OpenEngraving", 	"InitEditWindow", self)
+	Apollo.RegisterEventHandler("GenericEvent_InterfaceMenu_ToggleEngraving", 	"OnToggleEngraving", self)
 	Apollo.RegisterEventHandler("ItemModified",									"OnItemModified", self)
 	Apollo.RegisterEventHandler("DragDropSysBegin",								"OnDragDropSystemBegin", self)
 	Apollo.RegisterEventHandler("DragDropSysEnd", 								"OnDragDropSystemEnd", self)
@@ -136,8 +136,17 @@ function Runecrafting:OnDocumentReady()
 end
 
 function Runecrafting:OnInterfaceMenuListHasLoaded()
-	local tData = { "GenericEvent_InterfaceMenu_OpenEngraving", "", "Icon_Windows32_UI_CRB_InterfaceMenu_Runecrafting" }
+	local tData = { "GenericEvent_InterfaceMenu_ToggleEngraving", "", "Icon_Windows32_UI_CRB_InterfaceMenu_Runecrafting" }
 	Event_FireGenericEvent("InterfaceMenuList_NewAddOn", Apollo.GetString("EngravingStation_RunecraftingTitle"), tData)
+end
+
+function Runecrafting:OnToggleEngraving()
+	if self.wndMain and self.wndMain:IsShown() then
+		self:OnCloseFromUI()
+		return
+	end
+
+	self:InitEditWindow()
 end
 
 function Runecrafting:Initialize()

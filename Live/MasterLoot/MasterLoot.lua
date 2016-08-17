@@ -84,7 +84,8 @@ function MasterLoot:OnDocumentReady()
 	self.wndLooter:Show(false)
 
 	self.tOld_MasterLootList = {}
-
+	self.nLootCount = 0
+	
 	Apollo.RegisterEventHandler("WindowManagementReady", 		"OnWindowManagementReady", self)
 	self:OnWindowManagementReady()
 end
@@ -95,6 +96,14 @@ function MasterLoot:OnWindowManagementReady()
 end
 
 function MasterLoot:OnToggleGroupBag()
+	if not self.wndLooter:IsShown() then
+		self.wndLooter:Show(true)
+	end
+	
+	if not self.wndMasterLoot:IsShown() then
+		self.wndMasterLoot:Show(true)
+	end
+	
 	self:OnMasterLootUpdate()
 end
 
@@ -102,9 +111,15 @@ end
 
 function MasterLoot:OnMasterLootUpdate()
 	local tMasterLoot = GameLib.GetMasterLoot()
+	local bNewLoot = false
 
 	local tMasterLootItemList = {}
 	local tLooterItemList = {}
+	
+	if self.nLootCount < #tMasterLoot then 
+		bNewLoot = true	
+	end
+	self.nLootCount = #tMasterLoot	
 
 	-- Break items out into MasterLooter and Looter lists (which UI displays them)
 	for idxNewItem, tCurNewItem in pairs(tMasterLoot) do
@@ -114,13 +129,13 @@ function MasterLoot:OnMasterLootUpdate()
 	-- update lists with items
 	if next(tMasterLootItemList) ~= nil then
 		self:RefreshMasterLootItemList(tMasterLootItemList)
-		if not self.wndMasterLoot:IsShown() then
+		if not self.wndMasterLoot:IsShown() and bNewLoot then
 			self.wndMasterLoot:Show(true)
 		end
 	end
 	if next(tLooterItemList) ~= nil then
 		self:RefreshLooterItemList(tLooterItemList)
-		if not self.wndLooter:IsShown() then
+		if not self.wndLooter:IsShown() and bNewLoot then
 			self.wndLooter:Show(true)
 		end
 	end
@@ -139,6 +154,7 @@ function MasterLoot:OnMasterLootUpdate()
 			self.wndLooter:Show(false)
 		end
 	end
+	
 end
 
 function MasterLoot:RefreshMasterLootItemList(tMasterLootItemList)
@@ -212,7 +228,7 @@ function MasterLoot:RefreshMasterLootLooterList(tItem)
 		end
 		
 		wndCurrentLooter:Show(true)
-		wndCurrentLooter:FindChild("CharacterName"):SetText(strName)
+		wndCurrentLooter:SetText(strName)
 		wndCurrentLooter:FindChild("CharacterLevel"):SetText(unitLooter:GetBasicStats().nLevel)
 		wndCurrentLooter:FindChild("ClassIcon"):SetSprite(ktClassToIcon[unitLooter:GetClassId()])
 		wndCurrentLooter:Enable(true)
@@ -239,7 +255,7 @@ function MasterLoot:RefreshMasterLootLooterList(tItem)
 			end
 			
 			wndCurrentLooter:Show(true)
-			wndCurrentLooter:FindChild("CharacterName"):SetText(String_GetWeaselString(Apollo.GetString("Group_OutOfRange"), strLooterOOR))
+			wndCurrentLooter:SetText(String_GetWeaselString(Apollo.GetString("Group_OutOfRange"), strLooterOOR))
 			wndCurrentLooter:FindChild("CharacterLevel"):SetText(nil)
 			wndCurrentLooter:FindChild("ClassIcon"):SetSprite("CRB_GroupFrame:sprGroup_Disconnected")
 			wndCurrentLooter:Enable(false)
@@ -260,7 +276,7 @@ function MasterLoot:RefreshMasterLootLooterList(tItem)
 	end
 	
 	self.wndMasterLoot_LooterList:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop, function(a,b)
-		return a:FindChild("CharacterName"):GetText() < b:FindChild("CharacterName"):GetText()
+		return a:GetText() < b:GetText()
 	end)
 end
 
@@ -287,9 +303,6 @@ function MasterLoot:RefreshLooterItemList(tLooterItemList)
 			else
 				wndCurrentItem:FindChild("ItemIcon"):SetText("")
 			end
-			
-			-- new item(s) show the window
-			self.wndLooter:Show(true)
 		end
 		
 		wndCurrentItem:SetData(tItem)
@@ -359,7 +372,7 @@ end
 function MasterLoot:OnCharacterMouseButtonUp(wndHandler, wndControl, eMouseButton)
 	if eMouseButton == GameLib.CodeEnumInputMouse.Right then
 		local unitPlayer = wndControl:GetData() -- Potentially nil
-		local strPlayer = wndHandler:FindChild("CharacterName"):GetText()
+		local strPlayer = wndHandler:GetText()
 		if unitPlayer and unitPlayer.unitLooter then
 			Event_FireGenericEvent("GenericEvent_NewContextMenuPlayerDetailed", wndHandler, strPlayer, unitPlayer.unitLooter)
 		else

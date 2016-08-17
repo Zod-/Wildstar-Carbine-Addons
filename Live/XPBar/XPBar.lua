@@ -13,13 +13,14 @@ require "AccountItemLib"
 local XPBar = {}
 local knMaxLevel = 50 -- TODO: Replace with a variable from code
 local knMaxPathLevel = 30 -- TODO: Replace this with a non hardcoded value
-local knDefaultAltCurrency = 6
+local knDefaultAltCurrency = 7
 
 local karCurrency =  	
 {						-- To add a new currency just add an entry to the table; the UI will do the rest. Idx == 1 will be the default one shown
 	{eType = Money.CodeEnumCurrencyType.Renown, 					strTitle = Apollo.GetString("CRB_Renown"), 						strDescription = Apollo.GetString("CRB_Renown_Desc")},
 	{eType = Money.CodeEnumCurrencyType.ElderGems, 					strTitle = Apollo.GetString("CRB_Elder_Gems"), 					strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
 	{eType = Money.CodeEnumCurrencyType.Glory, 						strTitle = Apollo.GetString("CRB_Glory"), 						strDescription = Apollo.GetString("CRB_Glory_Desc")},
+	{eType = Money.CodeEnumCurrencyType.Triploons, 					strTitle = Apollo.GetString("CRB_Triploons"), 					strDescription = Apollo.GetString("CRB_Triploons_Desc")},
 	{eType = Money.CodeEnumCurrencyType.Prestige, 					strTitle = Apollo.GetString("CRB_Prestige"), 					strDescription = Apollo.GetString("CRB_Prestige_Desc")},
 	{eType = Money.CodeEnumCurrencyType.CraftingVouchers, 			strTitle = Apollo.GetString("CRB_Crafting_Vouchers"), 			strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")},
 	-- Will be alternative account currency for the sixth index
