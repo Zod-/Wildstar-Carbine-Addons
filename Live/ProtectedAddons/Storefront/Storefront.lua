@@ -236,6 +236,7 @@ function Storefront:OnDocumentReady()
 	-- Purchase
 	self.tWndRefs.wndCenterPurchase = wndMain:FindChild("Center:PurchaseDialog")
 	self.tWndRefs.wndCenterPurchaseScrollContent = wndMain:FindChild("Center:PurchaseDialog:ScrollContent")
+	self.tWndRefs.wndCenterPurchaseExclusiveBG = wndMain:FindChild("Center:PurchaseDialog:ScrollContent:LeftFraming:ExclusiveBurst")
 	self.tWndRefs.wndCenterPurchaseLeft = wndMain:FindChild("Center:PurchaseDialog:ScrollContent:Left")
 	self.tWndRefs.wndCenterPurchaseRight = wndMain:FindChild("Center:PurchaseDialog:ScrollContent:Right")
 	self.tWndRefs.wndCenterPurchasePreview = wndMain:FindChild("Center:PurchaseDialog:ScrollContent:Left:Preview:PreviewFrame")
@@ -1185,6 +1186,8 @@ function Storefront:SetupItemGrid(wndContainer, arOffers, nCategoryId)
 			wndItemCallout:Show(false)
 		end
 		
+		wndOffer:FindChild("SignatureCallout"):Show(tOfferInfo.nRequiredTier > 0)
+		
 		local wndBottomStack = wndOffer:FindChild("BottomStack")
 		if tOfferInfo ~= nil then
 			local wndPriceContainer = wndBottomStack:FindChild("PriceContainer")
@@ -1429,7 +1432,8 @@ function Storefront:SetupOffer(tOffer, nVariant, nCategoryId)
 	
 	local tDisplayInfo = StorefrontLib.GetStoreDisplayInfo(nDisplayInfoId)	
 	self:SetupPreviewWindow(self.tWndRefs.wndCenterPurchaseLeft, tDisplayInfo, tOfferInfo.tItems)
-	
+	self.tWndRefs.wndCenterPurchaseExclusiveBG:Show(tOfferInfo.nRequiredTier > 0)
+
 	self.tWndRefs.wndCenterPurchasePreviewOnMeBtn:Show(tDisplayInfo ~= nil and (tDisplayInfo.eDisplayType == StorefrontLib.CodeEnumStoreDisplayInfoDisplayType.Mannequin or tDisplayInfo.eDisplayType == StorefrontLib.CodeEnumStoreDisplayInfoDisplayType.CustomMannequin))
 	self.tWndRefs.wndCenterPurchasePreviewOnMeBtn:SetCheck(true)
 	self.tWndRefs.wndCenterPurchasePreviewOnMeBtn:SetData({tDisplayInfo = tDisplayInfo, tItems = tOfferInfo.tItems})
@@ -2259,6 +2263,8 @@ function Storefront:OnOfferItemGenerateTooltip(wndHandler, wndControl, eToolTipT
 	wndTooltip:FindChild("Description"):SetHeightToContentHeight()
 	
 	-- Callout
+	wndTooltip:FindChild("ExclusiveLabel"):Show(tOfferInfo.nRequiredTier > 0)
+
 	local wndItemCallout = wndTooltip:FindChild("ItemCallout")
 	if tOffer.tFlags.bLimitedTime then
 		wndItemCallout:Show(true)
