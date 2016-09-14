@@ -617,7 +617,7 @@ function MarketplaceCommodity:OnFilterOptionsLevelUpBtn(wndHandler, wndControl)
 	local nNewValue = nOldValue and nOldValue + 1
 	wndEditBox:SetText(nNewValue)
 	self:HelperCheckValidLevelValues(wndEditBox)
-	self.tWndRefs.wndMain:FindChild("FilterContainer:FilterClearBtn"):SetData(true)
+	self.tWndRefs.wndMain:FindChild("RightSide:MetalHeader:FilterContainer:FilterClearBtn"):SetData(true)
 end
 
 function MarketplaceCommodity:OnFilterOptionsLevelDownBtn(wndHandler, wndControl)
@@ -626,13 +626,13 @@ function MarketplaceCommodity:OnFilterOptionsLevelDownBtn(wndHandler, wndControl
 	local nNewValue = nOldValue and nOldValue - 1
 	wndEditBox:SetText(nNewValue)
 	self:HelperCheckValidLevelValues(wndEditBox)
-	self.tWndRefs.wndMain:FindChild("FilterContainer:FilterClearBtn"):SetData(true)
+	self.tWndRefs.wndMain:FindChild("RightSide:MetalHeader:FilterContainer:FilterClearBtn"):SetData(true)
 end
 
 function MarketplaceCommodity:OnFilterEditBoxChanged(wndHandler, wndControl)
 	local wndEditBox = wndHandler:GetParent():FindChild("FilterOptionsLevelEditBox")
 	self:HelperCheckValidLevelValues(wndEditBox)
-	self.tWndRefs.wndMain:FindChild("FilterContainer:FilterClearBtn"):SetData(true) -- GOTCHA: It will flag as dirty bit when the Refresh event gets called
+	self.tWndRefs.wndMain:FindChild("RightSide:MetalHeader:FilterContainer:FilterClearBtn"):SetData(true) -- GOTCHA: It will flag as dirty bit when the Refresh event gets called
 end
 
 function MarketplaceCommodity:OnFilterOptionsRarityItemToggle(wndHandler, wndControl) -- FilterOptionsRarityItemBtn
@@ -665,7 +665,7 @@ function MarketplaceCommodity:OnFilterOptionsWindowClosed(wndHandler, wndControl
 end
 
 function MarketplaceCommodity:HelperCheckValidLevelValues(wndChanged)
-	local wndFilterOptions = self.tWndRefs.wndMain:FindChild("FilterContainer:FilterOptionsContainer")
+	local wndFilterOptions = self.tWndRefs.wndMain:FindChild("RightSide:MetalHeader:FilterContainer:FilterOptionsContainer")
 	local wndMinLevelFilter = wndFilterOptions:FindChild("FilterOptionsLevelMinContainer:FilterOptionsLevelEditBox")
 	local wndMaxLevelFilter = wndFilterOptions:FindChild("FilterOptionsLevelMaxContainer:FilterOptionsLevelEditBox")
 	local nMinLevelValue = tonumber(wndMinLevelFilter:GetText()) or knMinLevel
