@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Addon Author="Carbine" APIVersion="11" Name="MicroStore" Description="" FrontEndScreen="1">
+	<Script Name="MicroStore.lua"/>
+	<Form Name="MicroStore.xml"/>
+	<Script Name="AddFunds.lua"/>
+	<Form Name="AddFunds.xml"/>
+</Addon>

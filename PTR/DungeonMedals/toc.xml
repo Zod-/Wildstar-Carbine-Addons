@@ -1,0 +1,4 @@
+<Addon Name="DungeonMedals" Version="1">
+    <Script Name="DungeonMedals.lua"/>
+    <Form Name="DungeonMedals.xml"/>
+</Addon>

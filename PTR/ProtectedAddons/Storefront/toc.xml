@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Addon Author="Carbine" APIVersion="10" Name="Storefront" Description="The show must go on!" OptionsScreen="1">
+	-- Hybrid
+	<Script Name="AddFunds.lua"/>
+	<Form Name="AddFunds.xml"/>
+	<Script Name="Loyalty.lua"/>
+	<Form Name="Loyalty.xml"/>
+	<Script Name="Signature.lua"/>
+	<Form Name="Signature.xml"/>
+
+	-- 
+	<Script Name="History.lua"/>
+	<Form Name="History.xml"/>
+	<Script Name="Storefront.lua"/>
+	<Form Name="Storefront.xml"/>
+</Addon>

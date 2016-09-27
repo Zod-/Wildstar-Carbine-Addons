@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Addon Author="Carbine" APIVersion="3" Name="AccountInventory" Description="">
+    <Script Name="AccountInventory.lua"/>
+</Addon>

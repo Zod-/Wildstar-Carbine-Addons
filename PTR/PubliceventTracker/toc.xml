@@ -1,0 +1,4 @@
+<Addon Name="PublicEventTracker" Version="1">
+	<Script Name="PublicEventTracker.lua" />
+	<Form Name="PublicEventTracker.xml" />
+</Addon>

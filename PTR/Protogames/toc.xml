@@ -1,0 +1,4 @@
+<Addon Name="Protogames" Version="1">
+    <Script Name="Protogames.lua"/>
+    <Form Name="Protogames.xml"/>
+</Addon>

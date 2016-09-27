@@ -1,0 +1,4 @@
+<Addon Name="Crafting" Version="1">
+    <Script Name="Crafting.lua" />
+    <Form Name="Crafting.xml" />
+</Addon>

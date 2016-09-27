@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Addon Author="Carbine" APIVersion="10" Name="Gacha" Description="" OptionsScreen="1">
+    <Script Name="Gacha.lua"/>
+    <Form Name="Gacha.xml"/>
+</Addon>

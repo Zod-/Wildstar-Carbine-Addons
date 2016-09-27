@@ -1,0 +1,4 @@
+<Addon Name="PathSettlerContent" Version="1">
+    <Script Name="PathSettlerMissions.lua" />
+    <Form Name="PathSettlerMissions.xml" />	
+</Addon>
