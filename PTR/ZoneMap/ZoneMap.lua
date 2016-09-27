@@ -904,7 +904,7 @@ function ZoneMap:OnDocumentReady()
 
 	self.tUnitCreateQueue = {}
 	self.timerCreateDelay = ApolloTimer.Create(0.25, true, "OnUnitCreateDelayTimer", self)
-	self.timerCreateDelay:Start()
+	self.timerCreateDelay:Stop()
 
 	self:CreateUnitsFromPreload()
 
@@ -922,6 +922,10 @@ function ZoneMap:OnDocumentReady()
 				self.tUnitCreateQueue[#self.tUnitCreateQueue + 1] = unitMember
 			end
 		end
+	end
+	
+	if #self.tUnitCreateQueue > 0 then
+		self.timerCreateDelay:Start()
 	end
 	
 	self:RehideAllToggledIcons()
@@ -1940,7 +1944,11 @@ function ZoneMap:OnGenerateTooltip(wndHandler, wndControl, eType, nX, nY)
 		local tMapObjects = self.wndZoneMap:GetObjectsAt(tPoint.x, tPoint.y) -- all others
 		local tZoneInfo = self.wndZoneMap:GetZoneInfo()
 		for key, tHexes in pairs(tMapObjects) do
-			if self.tButtonChecks[self.tPOITypes[tHexes.eType].eCategory] or tHexes.eType  == self.eObjectTypeNavPoint or tHexes.eType  == GameLib.CodeEnumMapOverlayType.TrackedUnit then
+			if self.tButtonChecks[self.tPOITypes[tHexes.eType].eCategory]
+				or tHexes.eType == self.eObjectTypeNavPoint
+				or tHexes.eType == GameLib.CodeEnumMapOverlayType.TrackedUnit
+				or tHexes.eType == self.eObjectTypeGroupMember then
+				
 				local strName = ""
 				local strType = self.tPOITypes[tHexes.eType] and self.tPOITypes[tHexes.eType].strType or eType					
 				
@@ -2664,6 +2672,7 @@ function ZoneMap:OnUnitCreated(unitMade)
 		return
 	end
 	self.tUnitCreateQueue[#self.tUnitCreateQueue + 1] = unitMade
+	self.timerCreateDelay:Start()
 end
 
 function ZoneMap:OnUnitCreateDelayTimer()
@@ -2678,6 +2687,10 @@ function ZoneMap:OnUnitCreateDelayTimer()
 		if os.time() - nCurrentTime > 0 then
 			break
 		end
+	end
+	
+	if #self.tUnitCreateQueue == 0 then
+		self.timerCreateDelay:Stop()
 	end
 end
 
@@ -3145,6 +3158,8 @@ function ZoneMap:OnGroupJoin()
 			end
 		end
 	end
+	
+	self.timerCreateDelay:Start()
 end
 
 function ZoneMap:OnGroupAdd(strName)
@@ -3161,6 +3176,8 @@ function ZoneMap:OnGroupAdd(strName)
 			if unitMember ~= nil and unitMember:IsValid() then
 				self.tUnitCreateQueue[#self.tUnitCreateQueue + 1] = unitMember
 			end
+			
+			self.timerCreateDelay:Start()
 
 			return
 		end
@@ -3182,6 +3199,7 @@ function ZoneMap:OnGroupRemove(strName, eReason)
 		end
 	end
 
+	self.timerCreateDelay:Start()
 	self:DrawGroupMembers()
 end
 

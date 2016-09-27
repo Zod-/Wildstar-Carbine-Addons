@@ -631,7 +631,6 @@ function HousingRemodel:OnLoad()
 	
 	self.rResidence = HousingLib.GetResidence()
 
-	self:ResetPopups()
 	self.wndCashRemodel:SetAmount(GameLib.GetPlayerCurrency(), true)
 	HousingLib.RefreshUI()
 

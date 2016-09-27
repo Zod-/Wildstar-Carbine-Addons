@@ -123,10 +123,7 @@ end
 function MessageManager:OnLoad()
 	Apollo.RegisterEventHandler("Float_RequestShowTextFloater", 	"RequestShowTextFloater", self )
 	Apollo.RegisterEventHandler("MessageFinished", 					"OnMessageFinished", self )
-	--Apollo.RegisterEventHandler("NextFrame", 			"OnFrameUpdate", self)
-	Apollo.RegisterTimerHandler("MessageUpdateTimer", 				"OnFrameUpdate", self)
-	
-	Apollo.CreateTimer("MessageUpdateTimer", 0.05, true)
+
 	
 	Apollo.RegisterSlashCommand("hidetext", 						"OnHideText", self ) -- for testing
     -- initialize queues
@@ -157,8 +154,19 @@ function MessageManager:OnFrameUpdate()
 				end
             end
         end
-    end 
-		
+    end
+
+
+	for key, eValue in pairs(LuaEnumMessageField) do
+		if self.tMessagesOnScreen[eValue] == nil then
+			if not self.tDisplayQueue[eValue]:Empty() then
+				return
+			end
+		end
+	end
+
+	Apollo.RemoveEventHandler("NextFrame", self)
+	self.bFrameRegistered = false
 end
 ---------------------------------------------------------------------------------------------------
 -- use this function to request displaying text floaters
@@ -371,7 +379,11 @@ function MessageManager:RequestShowMessage(eMessageType, tParams)
             end
         end
     end
-        
+
+	if not self.bFrameRegistered then
+		self.bFrameRegistered = true
+		Apollo.RegisterEventHandler("NextFrame", "OnFrameUpdate", self)
+	end
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -435,6 +447,11 @@ function MessageManager:HideMessage(eField)
     if  ktMessageSettings[eMessageType].bPreemptable == true then
        -- add it back into the front of queue
        self.tDisplayQueue[ eField ]:Insert( 1, self.tMessagesOnScreen[ eField ].tParams )
+
+		if not self.bFrameRegistered then
+			self.bFrameRegistered = true
+			Apollo.RegisterEventHandler("NextFrame", "OnFrameUpdate", self)
+		end
     end
     
     -- remove the tMessage from the tMessagesOnScreen list

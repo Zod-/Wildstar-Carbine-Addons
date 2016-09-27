@@ -1580,12 +1580,6 @@ function ChatLog:VerifyChannelVisibility(channelChecking, tInput, wndChat)
 	self.channelLastChannel = channelChecking
 	if self.tAllViewedChannels[channelChecking:GetUniqueId()] ~= nil then -- see if this channelChecking is viewed
 		local strMessage = tInput.strMessage
-		if channelChecking:GetType() == ChatSystemLib.ChatChannel_AccountWhisper then
-			if self.tAccountWhisperContex then
-				local strCharacterAndRealm = self.tAccountWhisperContex.strCharacterName .. "@" .. self.tAccountWhisperContex.strRealmName
-				strMessage = string.gsub(strMessage, self.tAccountWhisperContex.strDisplayName, strCharacterAndRealm, 1)
-			end
-		end
 
 		-- if there is a str command, they are changing the channel, or whisper target
 		--the target can be the same as the last target

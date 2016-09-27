@@ -18,7 +18,6 @@ function NCCB:Init()
 end
 
 function NCCB:OnLoad()
-	Apollo.RegisterEventHandler("NextFrame", "OnUpdate", self)
 	Apollo.RegisterEventHandler("Interaction", "Interact",self)
 
 	Apollo.LoadSprites("NonCombatCastBarSprites.xml")
@@ -99,6 +98,7 @@ function NCCB:OnUpdate()
 		
 		if self.tEvent.Progress >= self.tEvent.Duration then
 			self.NCCB:Show(false)
+			Apollo.RemoveEventHandler("NextFrame", self)
 			self.Box1:Show(false)
 			self.Box2:Show(false)
 			Interaction_Result(self.win)
@@ -110,6 +110,7 @@ function NCCB:OnUpdate()
 		if self.tEvent.Progress <= tonumber(0) then
 			self.win = 0
 			self.NCCB:Show(false)
+			Apollo.RemoveEventHandler("NextFrame", self)
 			self.Test:Show(false)
 			self.Box1:Show(false)
 			self.Box2:Show(false)
@@ -168,10 +169,12 @@ function NCCB:ActivateChannelButton()
 		
 		self.NCCB:FindChild("CastingProgress"):SetTickLocations(0,0) 
 		self.NCCB:Show(true)
+		Apollo.RegisterEventHandler("NextFrame", "OnUpdate", self)
 		
 		self:ActivateBar()
 	else
 		self.NCCB:Show(false)
+		Apollo.RemoveEventHandler("NextFrame", self)
 	end
 end
 
@@ -186,10 +189,12 @@ function NCCB:ActivateDrainButton()
 
 		self.NCCB:FindChild("CastingProgress"):SetTickLocations(0,0) 
 		self.NCCB:Show(true)
+		Apollo.RegisterEventHandler("NextFrame", "OnUpdate", self)
 		
 		self:ActivateBar()
 	else
 		self.NCCB:Show(false)
+		Apollo.RemoveEventHandler("NextFrame", self)
 	end
 end
 
@@ -206,6 +211,7 @@ function NCCB:PressHoldButton()
 		
 		self.NCCB:FindChild("CastingProgress"):SetTickLocations(0,0) 
 		self.NCCB:Show(true)
+		Apollo.RegisterEventHandler("NextFrame", "OnUpdate", self)
 		self:ActivateBar()
 	end
 end
@@ -221,6 +227,7 @@ function NCCB:PressHoldButton()
 		
 		self.NCCB:FindChild("CastingProgress"):SetTickLocations(0,0) 
 		self.NCCB:Show(true)
+		Apollo.RegisterEventHandler("NextFrame", "OnUpdate", self)
 		self:ActivateBar()
 	else
 		self.win=1
@@ -253,6 +260,7 @@ function NCCB:PressRapidButton()
 		self.win=0
 		self.NCCB:FindChild("CastingProgress"):SetTickLocations(0,0) 
 		self.NCCB:Show(true)
+		Apollo.RegisterEventHandler("NextFrame", "OnUpdate", self)
 		
 		self:ActivateBar()
 	else
@@ -262,6 +270,7 @@ function NCCB:PressRapidButton()
 		if self.tEvent.Progress >= self.tEvent.Duration then
 			Interaction_Result(self.win)
 			self.NCCB:Show(false)
+			Apollo.RemoveEventHandler("NextFrame", self)
 			self.Test:Show(false)
 		end
 	end	
@@ -279,6 +288,7 @@ function NCCB:ActivateTapBar()
 		self.tEvent.CurrentTime = GameLib.GetGameTime()
 	
 		self.NCCB:Show(true)
+		Apollo.RegisterEventHandler("NextFrame", "OnUpdate", self)
 		self.Box1:Show(true)
 		if self.tEvent.Layered == false then
 			self.Box2:Show(false)

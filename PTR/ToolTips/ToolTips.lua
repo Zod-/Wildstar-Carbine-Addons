@@ -1903,7 +1903,15 @@ local function ItemTooltipMonHelper(wndParent, tItemInfo, itemSource, tFlags) --
 	end
 
 	-- Salvage
-	if tItemInfo.bSalvagable and not tFlags.bBuying then
+	if itemSource:DoesSalvageRequireKey() and not tFlags.bBuying then
+		local strColor = kUICyan
+		if not tItemInfo.bSalvagable then
+			strColor = kUIRed
+		end
+		local wnd = Apollo.LoadForm("ui\\Tooltips\\TooltipsForms.xml", "SimpleRowSmallML", wndBox:FindChild("LeftSide"))
+		wnd:SetAML(string.format("<P Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</P>", strColor, Apollo.GetString("Tooltips_SalvageableWithKey")))
+		wnd:SetHeightToContentHeight()
+	elseif tItemInfo.bSalvagable and not tFlags.bBuying then
 		local strSalvage = tItemInfo.bAutoSalvage and Apollo.GetString("Tooltips_RightClickSalvage") or Apollo.GetString("Tooltips_Salvageable")
 		local wnd = Apollo.LoadForm("ui\\Tooltips\\TooltipsForms.xml", "SimpleRowSmallML", wndBox:FindChild("LeftSide"))
 		wnd:SetAML(string.format("<P Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</P>", kUICyan, strSalvage))

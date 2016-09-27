@@ -88,6 +88,10 @@ end
 
 function AddFunds:OnCloseDialog()
 	if self.tDialogWndRefs.wndMain ~= nil and self.tDialogWndRefs.wndMain:IsValid() then
+		if self.tDialogWndRefs.wndMain:IsShown() then
+			StorefrontLib.TopupClosed()
+		end
+		
 		self.tDialogWndRefs.wndMain:Show(false)
 	end
 end
@@ -146,6 +150,8 @@ function AddFunds:OnShowDialog(strDialogName, wndParent)
 		self:ConvertFundsDialog()
 	end
 	self.tDialogWndRefs.wndMain:Show(true)
+	
+	StorefrontLib.TopupOpen()
 end
 
 function AddFunds:ChoiceFundsDialog()
@@ -184,11 +190,11 @@ function AddFunds:OnAddFundsCancelSignal(wndHandler, wndControl, eMouseButton)
 	if wndHandler ~= wndControl then
 		return
 	end
-
-	self.tDialogWndRefs.wndMain:Show(false)
-	self.tDialogWndRefs.wndParent:Show(false)
 	
 	Event_FireGenericEvent("CloseDialog")
+	
+	self.tDialogWndRefs.wndMain:Show(false)
+	self.tDialogWndRefs.wndParent:Show(false)
 end
 
 ---------------------------------------------------------------------------------------------------
