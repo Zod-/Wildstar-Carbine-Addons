@@ -165,7 +165,7 @@ function FloatText:OnSubZoneChanged(idZone, strZoneName)
 	tTextOption.fOffset = -280
 	tTextOption.nColor = 0x80ffff
 	tTextOption.strFontFace = "CRB_HeaderGigantic_O"
-	tTextOption.bShowOnTop = true
+	tTextOption.bShowOnTop = false
 	tTextOption.arFrames=
 	{
 		[1] = {fTime = 0,	fAlpha = 0,		fScale = .8,},

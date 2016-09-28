@@ -200,6 +200,10 @@ function DailyRewards:DrawCommonSection(wndClaimReward)
 
 	if tLoginRewardData and tLoginRewardData.tReward and tLoginRewardData.tReward.item then
 		self:HelperDrawSimpleItem(tLoginRewardData, wndItemContainer)
+	else
+		wndShownSection:FindChild("ItemBackground"):Show(false)
+		wndShownSection:FindChild("ItemContainer"):Show(false)
+		wndShownSection:FindChild("PlusIcon"):Show(false)
 	end
 
 	--Lockbox Key
@@ -382,10 +386,10 @@ function DailyRewards:OnExitWindowRequestContent(wndParent)
 		self:InitializeContent()
 	end
 
-	self.wndDailyRewardsExitWindow = Apollo.LoadForm(self.xmlDoc, "DailyRewardsExitWindow", wndParent:FindChild("DailyLoginContainer"), self)
-
 	local nTomorrowLoginDay = self.nLoginDays + 1
 	if self.arAllDailyLoginRewards[nTomorrowLoginDay] then
+		self.wndDailyRewardsExitWindow = Apollo.LoadForm(self.xmlDoc, "DailyRewardsExitWindow", wndParent:FindChild("DailyLoginContainer"), self)
+	
 		self.wndDailyRewardsExitWindow:FindChild("Title"):SetText(String_GetWeaselString(Apollo.GetString("LoginIncentives_ExitTitle"), nTomorrowLoginDay))
 
 		local wndItemContainer = self.wndDailyRewardsExitWindow:FindChild("ItemContainer")

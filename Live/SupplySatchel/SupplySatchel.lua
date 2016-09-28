@@ -133,31 +133,38 @@ function SupplySatchel:OnInitializeSatchelPart2()
 
 		for idx, tCurrItem in ipairs(tCacheCategory.arItems) do
 			local wndItem = Apollo.LoadForm(self.xmlDoc, "Item", wndCat:FindChild("ItemList"), self)
+			local wndIcon = wndItem:FindChild("Icon")
+			local wndCount = wndItem:FindChild("Count")
+			local wndHighCountWarnFrame = wndItem:FindChild("HighCountWarnFrame")
+			
 			wndItem:Show(bShow)
 			wndItem:SetData(tCurrItem)
-			wndItem:FindChild("Icon"):SetSprite(tCurrItem.itemMaterial:GetIcon())
-			wndItem:FindChild("Icon"):GetWindowSubclass():SetItem(tCurrItem.itemMaterial)
+			wndIcon:SetSprite(tCurrItem.itemMaterial:GetIcon())
+			wndIcon:GetWindowSubclass():SetItem(tCurrItem.itemMaterial)
+			wndIcon:SetData(tCurrItem)
 			if tCurrItem.nCount == tCurrItem.nMaxStackCount then
-				wndItem:FindChild("HighCountWarnFrame"):Show(true)
-				wndItem:FindChild("Count"):SetText(tostring(tCurrItem.nCount).."\n/"..tCurrItem.nMaxStackCount)
-				wndItem:FindChild("Count"):SetTextColor(kclrRed)
+				wndHighCountWarnFrame:Show(true)
+				wndCount:SetText(tostring(tCurrItem.nCount).."\n/"..tCurrItem.nMaxStackCount)
+				wndCount:SetTextColor(kclrRed)
 			elseif tCurrItem.nCount >= tCurrItem.nMaxStackCount * knMediumThresholdScalar then
-				wndItem:FindChild("HighCountWarnFrame"):Show(true)
-				wndItem:FindChild("Count"):SetText(tostring(tCurrItem.nCount).."\n/"..tCurrItem.nMaxStackCount)
-				wndItem:FindChild("Count"):SetTextColor(kclrOrange)
+				wndHighCountWarnFrame:Show(true)
+				wndCount:SetText(tostring(tCurrItem.nCount).."\n/"..tCurrItem.nMaxStackCount)
+				wndCount:SetTextColor(kclrOrange)
 			elseif tCurrItem.nCount > knEmptyThreshold then
-				wndItem:FindChild("Count"):SetText(tostring(tCurrItem.nCount))
-				wndItem:FindChild("Count"):SetTextColor(kclrWhite)
+				wndCount:SetText(tostring(tCurrItem.nCount))
+				wndCount:SetTextColor(kclrWhite)
 			else
-				wndItem:FindChild("Icon"):SetBGColor(kclrGray)
+				wndIcon:SetBGColor(kclrGray)
 			end
-			Tooltip.GetItemTooltipForm(self, wndItem, tCurrItem.itemMaterial, {bPrimary = true, bSelling = false, nStackCount = tCurrItem.nCount})
 
 			if bShow then
 				tCacheCategory.nVisibleItems = tCacheCategory.nVisibleItems + 1
 			end
 
 			tCurrItem.wndItem = wndItem
+			tCurrItem.wndIcon = wndIcon
+			tCurrItem.wndCount = wndCount
+			tCurrItem.wndHighCountWarnFrame = wndHighCountWarnFrame
 		end
 	end
 
@@ -199,6 +206,8 @@ function SupplySatchel:OnResize()
 			tCacheCategory.wndCat:Show(false)
 		end
 	end
+	
+	self.wndCategoryList:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop)
 end
 
 function SupplySatchel:ResizeCategory(tCat)
@@ -211,9 +220,6 @@ function SupplySatchel:ResizeCategory(tCat)
 	tCat.wndCat:SetAnchorOffsets(nLeft, nTop, nRight, nTop + nNewHeight)
 
 	wndItemList:ArrangeChildrenTiles(Window.CodeEnumArrangeOrigin.LeftOrTop)
-	wndItemList:RecalculateContentExtents()
-	self.wndCategoryList:ArrangeChildrenVert()
-	self.wndCategoryList:RecalculateContentExtents()
 end
 
 function SupplySatchel:OnResizeTimer()
@@ -288,6 +294,8 @@ function SupplySatchel:PopulateSatchel(bRescroll)
 	local bSearchString = Apollo.StringLength(strSearchString) > 0
 	self.wndMain:FindChild("SearchClearBtn"):Show(bSearchString)
 
+	local bNeedResize = false
+	
 	for strCategory, arItems in pairs(unitPlayer:GetSupplySatchelItems(0)) do
 		local tCacheCategory = self.tItemCache[strCategory]
 		if tCacheCategory then
@@ -304,42 +312,48 @@ function SupplySatchel:PopulateSatchel(bRescroll)
 				if tCacheItem.nCount ~= tCurrItem.nCount or tCacheItem.nMaxStackCount ~= tCurrItem.nMaxStackCount then
 					tCacheItem.nCount = tCurrItem.nCount
 					tCacheItem.wndItem:SetData(tCurrItem)
-					tCacheItem.wndItem:FindChild("HighCountWarnFrame"):Show(tCurrItem.nCount > tCurrItem.nMaxStackCount)
+					tCacheItem.wndIcon:SetTooltipDoc(nil)
+					tCacheItem.wndHighCountWarnFrame:Show(tCurrItem.nCount > tCurrItem.nMaxStackCount)
 					if tCurrItem.nCount == tCurrItem.nMaxStackCount then
-						tCacheItem.wndItem:FindChild("Count"):SetText(tostring(tCurrItem.nCount).."\n/"..tCurrItem.nMaxStackCount)
-						tCacheItem.wndItem:FindChild("Count"):SetTextColor(kclrRed)
-						tCacheItem.wndItem:FindChild("Icon"):SetBGColor(kclrWhite)
+						tCacheItem.wndCount:SetText(tostring(tCurrItem.nCount).."\n/"..tCurrItem.nMaxStackCount)
+						tCacheItem.wndCount:SetTextColor(kclrRed)
+						tCacheItem.wndIcon:SetBGColor(kclrWhite)
 					elseif tCurrItem.nCount >= tCurrItem.nMaxStackCount * knMediumThresholdScalar then
-						tCacheItem.wndItem:FindChild("Count"):SetText(tostring(tCurrItem.nCount).."\n/"..tCurrItem.nMaxStackCount)
-						tCacheItem.wndItem:FindChild("Count"):SetTextColor(kclrOrange)
-						tCacheItem.wndItem:FindChild("Icon"):SetBGColor(kclrWhite)
+						tCacheItem.wndCount:SetText(tostring(tCurrItem.nCount).."\n/"..tCurrItem.nMaxStackCount)
+						tCacheItem.wndCount:SetTextColor(kclrOrange)
+						tCacheItem.wndIcon:SetBGColor(kclrWhite)
 					elseif tCurrItem.nCount > knEmptyThreshold then
-						tCacheItem.wndItem:FindChild("Count"):SetText(tostring(tCurrItem.nCount))
-						tCacheItem.wndItem:FindChild("Count"):SetTextColor(kclrWhite)
-						tCacheItem.wndItem:FindChild("Icon"):SetBGColor(kclrWhite)
+						tCacheItem.wndCount:SetText(tostring(tCurrItem.nCount))
+						tCacheItem.wndCount:SetTextColor(kclrWhite)
+						tCacheItem.wndIcon:SetBGColor(kclrWhite)
 					else
-						tCacheItem.wndItem:FindChild("Count"):SetText("")
-						tCacheItem.wndItem:FindChild("Count"):SetTextColor(kclrWhite)
-						tCacheItem.wndItem:FindChild("Icon"):SetBGColor(kclrGray)
+						tCacheItem.wndCount:SetText("")
+						tCacheItem.wndCount:SetTextColor(kclrWhite)
+						tCacheItem.wndIcon:SetBGColor(kclrGray)
 					end
-					Tooltip.GetItemTooltipForm(self, tCacheItem.wndItem, tCurrItem.itemMaterial, {bPrimary = true, bSelling = false, nStackCount = tCurrItem.nCount})
 				end
 				if tCurrItem.nCount >= nMinCount and (not bSearchString or self:HelperSearchNameMatch(tCurrItem.itemMaterial:GetName(), strSearchString)) then
+					if not tCacheItem.wndItem:IsShown() then
+						bNeedResize = true
+					end
+					
 					tCacheItem.wndItem:Show(true)
 					tCacheCategory.nVisibleItems = tCacheCategory.nVisibleItems + 1
 				else
+					if tCacheItem.wndItem:IsShown() then
+						bNeedResize = true
+					end
+					
 					tCacheItem.wndItem:Show(false)
 				end
 			end
 		end
 	end
 
-	self:OnResize()
-	self.wndCategoryList:SetVScrollPos(nVScrollPos)
-	if bRescroll then
-		self.wndCategoryList:ArrangeChildrenVert()
-		self.wndCategoryList:RecalculateContentExtents()
+	if bNeedResize then
+		self:OnResize()
 	end
+	self.wndCategoryList:SetVScrollPos(nVScrollPos)
 end
 
 -- the player clicked an item
@@ -378,6 +392,13 @@ function SupplySatchel:HelperSearchNameMatch(strBase, strInput)
 	strBase = strBase:lower() -- Not case sensitive
 	strInput = strInput:lower()
 	return strBase:find(strInput, 1, true)
+end
+
+function SupplySatchel:OnGenerateTooltip(wndHandler, wndControl, tType, eType, arg1, arg2)
+	if Tooltip ~= nil and Tooltip.GetItemTooltipForm ~= nil then
+		local tCurrItem = wndControl:GetData()
+		Tooltip.GetItemTooltipForm(self, wndControl, tCurrItem.itemMaterial, {bSelling = false, nStackCount = tCurrItem.nCount})
+	end
 end
 
 -----------------------------------------------------------------------------------------------

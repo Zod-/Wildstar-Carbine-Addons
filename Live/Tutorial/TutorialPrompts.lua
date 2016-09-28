@@ -442,7 +442,7 @@ function TutorialPrompts:DrawTutorialPage(nTutorialId, nPassedPage) --(wndArg, n
 	for idx, strCurrText in ipairs(tTutorial[nCurrPage].tBody) do
 		local wndToDo = nil
 		local nTextPadding = 12
-		local nWindowPadding = 25
+		local nWindowPadding = 0
 		local bStrCurrTextExists = strCurrText and Apollo.StringLength(strCurrText) > 0
 		local strAsAML = "<P Font=\"CRB_InterfaceMedium\" TextColor=\"BabyPurple\" Align=\"Left\">"..strCurrText.."</P>"
 		Sound.Play(Sound.PlayUIMiniMapPing)
@@ -452,12 +452,11 @@ function TutorialPrompts:DrawTutorialPage(nTutorialId, nPassedPage) --(wndArg, n
 			wnd:FindChild("Body"):Show(true)
 			wnd:FindChild("BodyFrameBG"):Show(true)
 			wnd:FindChild("Body"):SetAML(strAsAML)
-			
 			if wnd:GetName() ~= "TutorialForm_ExtraLarge" then
-				local nWidth, nHeight = wnd:FindChild("Body"):SetHeightToContentHeight()
-				local nBGHeight = wnd:FindChild("BodyFrameBG"):GetHeight()
-				if nHeight + nTextPadding > nBGHeight then
-					nOnGoingHeight = nHeight - nBGHeight + nWindowPadding
+				local nTextWidth, nTextHeight = wnd:FindChild("Body"):SetHeightToContentHeight()
+				local nBGLeft, nBGTop, nBGRight, nBGBottom = wnd:FindChild("BodyFrameBG"):GetOriginalLocation():GetOffsets()
+				if (nTextHeight + nTextPadding) > (nBGTop - nBGBottom) then
+					nOnGoingHeight = nTextHeight - (nBGTop - nBGBottom)
 				end
 			end
 		elseif idx == 2 and wnd:FindChild("BodyLeft") and bStrCurrTextExists then
@@ -552,7 +551,7 @@ function TutorialPrompts:DrawTutorialPage(nTutorialId, nPassedPage) --(wndArg, n
 	local nLeft = tDefaultDimensions.nLeft
 	local nTop = tDefaultDimensions.nTop
 	local nWidth = tDefaultDimensions.nWidth +  nLeft
-	local nHeight = tDefaultDimensions.nHeight +  nTop+ nOnGoingHeight
+	local nHeight = tDefaultDimensions.nHeight +  nTop + nOnGoingHeight
 	wnd:SetAnchorOffsets(nLeft, nTop,  nWidth, nHeight)
 
 	-- Play Sound

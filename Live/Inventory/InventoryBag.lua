@@ -9,6 +9,7 @@ require "Item"
 require "Window"
 require "Money"
 require "AccountItemLib"
+require "StorefrontLib"
 
 local InventoryBag = {}
 local knSmallIconOption = 42
@@ -205,15 +206,18 @@ function InventoryBag:OnDocumentReady()
 	Apollo.RegisterEventHandler("SupplySatchelClosed", 						"OnSupplySatchelClosed", self)
 	Apollo.RegisterEventHandler("PremiumTierChanged",						"UpdateBagBlocker", self)
 	Apollo.RegisterEventHandler("Tutorial_RequestUIAnchor", 				"OnTutorial_RequestUIAnchor", self)
+	Apollo.RegisterEventHandler("StoreLinksRefresh",						"OnStoreLinksRefresh", self)
+	Apollo.RegisterEventHandler("SalvageKeyRequiresConfirm",				"OnSalvageKeyRequiresConfirm", self)
 
 	-- TODO Refactor: Investigate these two, we may not need them if we can detect the origin window of a drag
 	Apollo.RegisterEventHandler("DragDropSysBegin", "OnSystemBeginDragDrop", self)
 	Apollo.RegisterEventHandler("DragDropSysEnd", 	"OnSystemEndDragDrop", self)
 
-	self.wndDeleteConfirm 	= Apollo.LoadForm(self.xmlDoc, "InventoryDeleteNotice", nil, self)
-	self.wndSalvageConfirm 	= Apollo.LoadForm(self.xmlDoc, "InventorySalvageNotice", nil, self)
-	self.wndMain 			= Apollo.LoadForm(self.xmlDoc, "InventoryBag", nil, self)
-	self.wndSplit 			= Apollo.LoadForm(self.xmlDoc, "SplitStackContainer", nil, self)
+	self.wndDeleteConfirm = Apollo.LoadForm(self.xmlDoc, "InventoryDeleteNotice", nil, self)
+	self.wndSalvageConfirm = Apollo.LoadForm(self.xmlDoc, "InventorySalvageNotice", nil, self)
+	self.wndSalvageWithKeyConfirm = Apollo.LoadForm(self.xmlDoc, "InventorySalvageWithKeyNotice", nil, self)
+	self.wndMain = Apollo.LoadForm(self.xmlDoc, "InventoryBag", nil, self)
+	self.wndSplit = Apollo.LoadForm(self.xmlDoc, "SplitStackContainer", nil, self)
 	self.wndMain:FindChild("VirtualInvToggleBtn"):AttachWindow(self.wndMain:FindChild("VirtualInvContainer"))
 	self.wndMain:Show(false, true)
 	self.wndSalvageConfirm:Show(false, true)
@@ -722,9 +726,28 @@ function InventoryBag:InvokeDeleteConfirmWindow(iData)
 end
 
 function InventoryBag:InvokeSalvageConfirmWindow(iData)
-	self.wndSalvageConfirm:SetData(iData)
-	self.wndSalvageConfirm:Invoke()
-	self.wndSalvageConfirm:FindChild("SalvageBtn"):SetActionData(GameLib.CodeEnumConfirmButtonType.SalvageItem, iData)
+	local item = Item.GetItemFromInventoryLoc(iData)
+	if item:DoesSalvageRequireKey() then
+		local nKeyCount = GameLib.SalvageKeyCount()
+		self.wndSalvageWithKeyConfirm:SetData(iData)
+		self.wndSalvageWithKeyConfirm:Invoke()
+		self.wndSalvageWithKeyConfirm:FindChild("SalvageBtn"):SetActionData(GameLib.CodeEnumConfirmButtonType.SalvageItem, iData)
+		if nKeyCount == 0 then
+			self.wndSalvageWithKeyConfirm:FindChild("Hologram:GetKeysBtn"):Show(StorefrontLib.IsLinkValid(StorefrontLib.CodeEnumStoreLink.LockboxKey))
+			self.wndSalvageWithKeyConfirm:FindChild("Hologram:SalvageBtn"):Show(false)
+			self.wndSalvageWithKeyConfirm:FindChild("NoticeText"):SetText(Apollo.GetString("Inventory_SalvageNoKey"))
+			self.wndSalvageWithKeyConfirm:FindChild("NoticeText"):SetTextColor("Orangered")
+		else
+			self.wndSalvageWithKeyConfirm:FindChild("Hologram:GetKeysBtn"):Show(false)
+			self.wndSalvageWithKeyConfirm:FindChild("Hologram:SalvageBtn"):Show(true)		
+			self.wndSalvageWithKeyConfirm:FindChild("NoticeText"):SetText(String_GetWeaselString(Apollo.GetString("Inventory_ConfirmSalvageWithKeyNotice"), nKeyCount))
+			self.wndSalvageWithKeyConfirm:FindChild("NoticeText"):SetTextColor("UI_TextHoloTitle")
+		end
+	else
+		self.wndSalvageConfirm:SetData(iData)
+		self.wndSalvageConfirm:Invoke()
+		self.wndSalvageConfirm:FindChild("SalvageBtn"):SetActionData(GameLib.CodeEnumConfirmButtonType.SalvageItem, iData)
+	end
 	self.wndMain:FindChild("DragDropMouseBlocker"):Show(true)
 	Sound.Play(Sound.PlayUI55ErrorVirtual)
 end
@@ -749,6 +772,29 @@ end
 function InventoryBag:OnSalvageConfirm()
 	Event_ShowTutorial(GameLib.CodeEnumTutorial.CharacterWindow)
 	self:OnSalvageCancel()
+end
+
+-----------------------------------------------------------------------------------------------
+-- Salvage With Key Screen
+-----------------------------------------------------------------------------------------------
+
+function InventoryBag:OnSalvageKeyRequiresConfirm(item)
+	self:InvokeSalvageConfirmWindow(item:GetInventoryId())
+end
+
+function InventoryBag:OnSalvageKeysConfirm()
+	self:OnSalvageKeysCancel()
+end
+
+function InventoryBag:OnGetMoreSalvageKeysSignal()
+	StorefrontLib.OpenLink(StorefrontLib.CodeEnumStoreLink.LockboxKey)
+	self:OnSalvageKeysCancel()
+end
+
+function InventoryBag:OnSalvageKeysCancel()
+	self.wndSalvageWithKeyConfirm:SetData(nil)
+	self.wndSalvageWithKeyConfirm:Close()
+	self.wndMain:FindChild("DragDropMouseBlocker"):Show(false)
 end
 
 -----------------------------------------------------------------------------------------------
@@ -814,6 +860,16 @@ function InventoryBag:UpdateBagBlocker(ePremiumSystem, nTier)
 	
 	local wndBlockerVIPLapse = self.wndMain:FindChild("OptionsContainer:OptionsContainerFrame:OptionsConfigureBags:OptionsConfigureBagsBG:BlockerVIPLapse")
 	wndBlockerVIPLapse:Show(nTier == 0)
+end
+
+---------------------------------------------------------------------------------------------------
+-- Store Updates
+---------------------------------------------------------------------------------------------------
+
+function InventoryBag:OnStoreLinksRefresh()
+	if self.wndSalvageWithKeyConfirm ~= nil and self.wndSalvageWithKeyConfirm:IsValid() then
+		self.wndSalvageWithKeyConfirm:FindChild("Hologram:GetKeysBtn"):Show(StorefrontLib.IsLinkValid(StorefrontLib.CodeEnumStoreLink.LockboxKey))
+	end
 end
 
 ---------------------------------------------------------------------------------------------------

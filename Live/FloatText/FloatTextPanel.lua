@@ -188,8 +188,6 @@ function FloatTextPanel:OnDocumentReady()
 	self.wndFramerate = Apollo.LoadForm(self.xmlDoc, "FramerateDisplay", nil, self)
 	self.wndFramerate:Show(false, true)
 
-	self.timerFramerateRefresh:Start()
-
 	self.wndHintArrowDistance = Apollo.LoadForm(self.xmlDoc ,"HintArrowDistanceDisplay", nil, self)
 	self.wndHintArrowDistance:Show(false, true)
 	self.xmlDoc = nil
@@ -383,6 +381,11 @@ end
 
 function FloatTextPanel:OnToggleFramerate()
 	self.wndFramerate:Show(not self.wndFramerate:IsShown())
+	if self.wndFramerate:IsShown() then
+		self.timerFramerateRefresh:Start()
+	else
+		self.timerFramerateRefresh:Stop()
+	end
 end
 
 function FloatTextPanel:OnFramerateRefreshTimer()

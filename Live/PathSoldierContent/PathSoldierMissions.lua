@@ -57,10 +57,9 @@ function PathSoldierMissions:OnCharacterLoaded()
 
 	Apollo.RegisterTimerHandler("SoldierHoldout_CleanWhackAMole",	"OnSoldierHoldout_CleanWhackAMole", self)
 	Apollo.RegisterTimerHandler("IncomingWarning", 					"OnIncomingWarning", self)
-	Apollo.RegisterTimerHandler("SoldierTimer", 					"OnSoldierTimer", self)
 
-	Apollo.CreateTimer("SoldierTimer", 0.4, true)
-	Apollo.StartTimer("SoldierTimer")
+	self.timerSoldier = ApolloTimer.Create(0.4, true, "OnSoldierTimer", self)
+	self.timerSoldier:Stop()
 
 	self.tWndWhackAMole = {}
 	self.bFirstTowerDefenseLoad = true
@@ -87,11 +86,13 @@ function PathSoldierMissions:OnExitSoldierMissionMain()
 	Event_FireGenericEvent("Datachron_SoldierMissionsClosed")
 	self.wndMain:Show(false)
 	self.wndMain:SetData(nil)
+	self.timerSoldier:Stop()
 end
 
 function PathSoldierMissions:LoadFromList(seArgEvent)
 	-- TODO: Note we can technically have different missions going at once
 	self.wndMain:SetData(seArgEvent)
+	self.timerSoldier:Start()
 	self.wndMain:Show(true)
 	self.wndMain:ToFront()
 
@@ -359,6 +360,7 @@ function PathSoldierMissions:OnSoldierHoldoutNextWave(seArgEvent)
 
 	if not self.wndMain:GetData() then
 		self.wndMain:SetData(seArgEvent)
+		self.timerSoldier:Start()
 	end
 
 	local bIsBoss = seArgEvent:IsBoss()

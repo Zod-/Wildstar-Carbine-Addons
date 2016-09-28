@@ -454,7 +454,7 @@ function Storefront:OnOpenStore()
 			wndNavBtn:SetCheck(self.tWndRefs.wndNavPrimaryHome == wndNavBtn)
 		end
 	end
-	self:OnFeaturedCheck(self.tWndRefs.wndNavPrimaryHome:FindChild("NavBtn"), self.tWndRefs.wndNavPrimaryHome:FindChild("NavBtn"))
+	self:ShowFeatured()
 	
 	local nDesiredHeight = 550
 	local nHeight = self.tWndRefs.wndCenterPurchase:GetHeight()
@@ -469,6 +469,12 @@ function Storefront:OnOpenStore()
 end
 
 function Storefront:OnOpenStoreLinkSingle(nOfferGroupId, nVariant)
+	if self.wndNavInUse ~= nil and self.wndNavInUse:IsValid() then
+		self.wndNavInUse:SetCheck(false)
+	end
+	self.wndNavInUse = nil
+
+	self:CenterShowHelper(self.tWndRefs.wndCenterPurchase)
 	local tOffer = StorefrontLib.GetOfferGroupInfo(nOfferGroupId)
 	self:SetupOffer(tOffer, nVariant, 0)
 end
@@ -510,6 +516,7 @@ function Storefront:OnSystemKeyDown(iKey)
 			-- Do nothing
 		elseif self.tWndRefs.wndModelDialog:IsShown() then
 			self.tWndRefs.wndModelDialog:Show(false)
+			Event_FireGenericEvent("CloseDialog")
 		else
 			CloseStore()
 		end
@@ -519,9 +526,7 @@ end
 function Storefront:OnStoreBannersReady()
 	if self.wndNavInUse ~= nil then
 		if self.wndNavInUse == self.tWndRefs.wndNavPrimaryHome then
-			local wndBtn = self.tWndRefs.wndNavPrimaryHome:FindChild("NavBtn")
-			self:OnFeaturedCheck(wndBtn, wndBtn)
-			wndBtn:SetCheck(true)
+			self:ShowFeatured()
 		end
 	end
 end
@@ -548,9 +553,7 @@ function Storefront:OnStoreCatalogReady()
 	if self.wndNavInUse ~= nil then
 		if self.wndNavInUse == self.tWndRefs.wndNavPrimaryHome then
 			self:BuildNavigation()
-			local wndBtn = self.tWndRefs.wndNavPrimaryHome:FindChild("NavBtn")
-			self:OnFeaturedCheck(wndBtn, wndBtn)
-			wndBtn:SetCheck(true)
+			self:ShowFeatured()
 		elseif self.wndNavInUse == self.tWndRefs.wndNavPrimaryPremiumPage then
 			self:BuildNavigation()
 			local wndBtn = self.tWndRefs.wndNavPrimaryPremiumPage:FindChild("NavBtn")
@@ -1311,6 +1314,18 @@ function Storefront:OpenBanner(tData)
 	end
 end
 
+function Storefront:ShowFeatured()
+	self:CenterShowHelper(self.tWndRefs.wndSplash)
+	self:SetupFeatured()
+	
+	if self.wndNavInUse ~= nil and self.wndNavInUse:IsValid() then
+		self.wndNavInUse:SetCheck(false)
+	end
+	self.wndNavInUse = self.tWndRefs.wndNavPrimaryHome:FindChild("NavBtn")
+	self.tWndRefs.wndNavSearchEditBox:SetText("")
+	self.tWndRefs.wndNavPrimaryHome:FindChild("NavBtn"):SetFocus()
+end
+
 function Storefront:SetupFeatured()
 	local tBanners = StorefrontLib.GetBanners()
 	
@@ -2046,6 +2061,7 @@ function Storefront:OnSearchTimer()
 	
 	self:CenterShowHelper(self.tWndRefs.wndCenterContent)
 	self:SetupSearchItemPage()
+	StorefrontLib.StoreSearched(self.tWndRefs.wndNavSearchEditBox:GetText())
 end
 
 function Storefront:NavSearchTextChanged(wndHandler, wndControl, strText)
@@ -2144,6 +2160,8 @@ function Storefront:OnNavPrimaryCheck(wndHandler, wndControl, eMouseButton)
 	wndControl:SetFocus()
 	
 	self:UpdateTutorialHighlight(wndControl, nil, nil)
+	
+	StorefrontLib.CategoryClicked(tCategory.nId)
 end
 
 function Storefront:OnNavPrimaryUncheck(wndHandler, wndControl, eMouseButton)
@@ -2180,6 +2198,8 @@ function Storefront:OnPremiumPageCheck(wndHandler, wndControl, eMouseButton)
 	self.wndNavInUse = wndControl
 	self.tWndRefs.wndNavSearchEditBox:SetText("")
 	wndControl:SetFocus()
+	
+	StorefrontLib.CategoryClicked(-2)
 end
 
 function Storefront:OnPremiumStoreCheck(wndHandler, wndControl, eMouseButton)
@@ -2198,6 +2218,8 @@ function Storefront:OnPremiumStoreCheck(wndHandler, wndControl, eMouseButton)
 	wndControl:SetFocus()
 	
 	self:UpdateTutorialHighlight(wndControl, nil, nil)
+	
+	StorefrontLib.CategoryClicked(wndControl:GetData().nId)
 end
 
 function Storefront:OnFeaturedCheck(wndHandler, wndControl, eMouseButton)
@@ -2205,15 +2227,8 @@ function Storefront:OnFeaturedCheck(wndHandler, wndControl, eMouseButton)
 		return
 	end
 
-	self:CenterShowHelper(self.tWndRefs.wndSplash)
-	self:SetupFeatured()
-	
-	if self.wndNavInUse ~= nil and self.wndNavInUse:IsValid() then
-		self.wndNavInUse:SetCheck(false)
-	end
-	self.wndNavInUse = wndControl
-	self.tWndRefs.wndNavSearchEditBox:SetText("")
-	wndControl:SetFocus()
+	self:ShowFeatured()
+	StorefrontLib.CategoryClicked(0)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -2234,6 +2249,8 @@ function Storefront:OnNavSecondaryCheck(wndHandler, wndControl, eMouseButton)
 	wndControl:SetFocus()
 	
 	self:UpdateTutorialHighlight(wndControl, nil, nil)
+	
+	StorefrontLib.CategoryClicked(tSubCategory.nId)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -2444,6 +2461,8 @@ function Storefront:OnBannerSignal(wndHandler, wndControl, eMouseButton)
 	elseif tData.eBannerProductType == StorefrontLib.BannerPageType.Signature then
 		self:OnOpenSignature()
 	end
+	
+	StorefrontLib.BannerClicked(tData.eLocation, tData.nOrder)
 end
 
 function Storefront:ShowCategoryPage(nCategoryId)

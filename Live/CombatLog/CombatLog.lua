@@ -14,18 +14,18 @@ require "CombatFloater"
 require "GroupLib"
 
 local CombatLog = {}
-local kstrFontBold 						= "CRB_InterfaceMedium_BB" -- TODO TEMP, allow customizing
-local kstrLootColor 					= "ffc0c0c0"
-local kstrColorCombatLogOutgoing 		= "ff2f94ac"
-local kstrColorCombatLogIncomingGood 	= "ff4bacc6"
-local kstrColorCombatLogIncomingBad 	= "ffff4200"
-local kstrColorCombatLogPathXP 			= "fffff533"
-local kstrColorCombatLogRep 			= "fffff533"
-local kstrColorCombatLogXP 				= "fffff533"
-local kstrColorCombatLogUNKNOWN 		= "ffffffff"
-local kstrCurrencyColor 				= "fffff533"
-local kstrStateColor 					= "ff9a8460"
-local kstEquipColor 					= "ffc0c0c0"
+local kstrFontBold						= "CRB_InterfaceMedium_BB" -- TODO TEMP, allow customizing
+local kstrLootColor						= "ffc0c0c0"
+local kstrColorCombatLogOutgoing		= "ff2f94ac"
+local kstrColorCombatLogIncomingGood	= "ff4bacc6"
+local kstrColorCombatLogIncomingBad		= "ffff4200"
+local kstrColorCombatLogPathXP			= "fffff533"
+local kstrColorCombatLogRep				= "fffff533"
+local kstrColorCombatLogXP				= "fffff533"
+local kstrColorCombatLogUNKNOWN			= "ffffffff"
+local kstrCurrencyColor					= "fffff533"
+local kstrStateColor					= "ff9a8460"
+local kstEquipColor						= "ffc0c0c0"
 
 local knSaveVersion						= 1
 
@@ -49,6 +49,7 @@ function CombatLog:OnDocumentReady()
 	if  self.xmlDoc == nil then
 		return
 	end
+	
 	Apollo.RegisterEventHandler("CombatLogAbsorption", 				"OnCombatLogAbsorption", self)
 	Apollo.RegisterEventHandler("CombatLogCCState", 				"OnCombatLogCCState", self)
 	Apollo.RegisterEventHandler("CombatLogCCStateBreak", 			"OnCombatLogCCStateBreak", self)
@@ -92,7 +93,7 @@ function CombatLog:OnDocumentReady()
 	Apollo.RegisterEventHandler("PetSpawned", 						"OnPetStatusUpdated", self)
 	Apollo.RegisterEventHandler("PetDespawned", 					"OnPetStatusUpdated", self)
 	Apollo.RegisterEventHandler("PlayerEquippedItemChanged", 			"OnPlayerEquippedItemChanged", self)
-
+	
 	self.tTypeMapping =
 	{
 		[GameLib.CodeEnumDamageType.Physical] 	= Apollo.GetString("DamageType_Physical"),
@@ -113,9 +114,48 @@ function CombatLog:OnDocumentReady()
 	self.crVitalModifier = "ffffffff"
 	self.unitPlayer = nil
 	self.tPetUnits = {}
-end
-function CombatLog:PostOnChannel(strResult)
-	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, string.format("<P Font=\"CRB_InterfaceMedium\">%s</P>", strResult), "")
+	
+	self.tCache =
+	{
+		CombatLogDamage = {},
+		CombatLogDamageShields = {},
+		CombatLogReflect = {},
+		CombatLogMultiHit = {},
+		CombatLogMultiHitShields = {},
+		CombatLogFallingDamage = {},
+		CombatLogDeflect = {},
+		CombatLogImmunity = {},
+		CombatLogDispel = {},
+		CombatLogHeal = {},
+		CombatLogMultiHeal = {},
+		CombatLogModifyInterruptArmor = {},
+		CombatLogAbsorption = {},
+		CombatLogHealingAbsorption = {},
+		CombatLogVitalModifier = {},
+		CombatLogCCStateSelf = {},
+		CombatLogCCState = {},
+		CombatLogLifeSteal = {},
+		CombatLogTransference = {},
+		CombatLogInterrupted = {},
+		CombatLogKillStreak = {},
+		CombatLogKillPVP = {},
+		CombatLogCCStateBreak = {},
+		CombatLogDelayDeath = {},
+		CombatLogDeath = {},
+		CombatLogStealth = {},
+		CombatLogMount = {},
+		CombatLogPet = {},
+		CombatLogResurrect = {},
+		CombatLogLAS = {},
+		CombatLogBuildSwitch = {},
+		CombatLogExperience = {},
+		CombatLogElderPointsLimitReached = {},
+		CombatLogDurabilityLoss = {},
+		PathExperienceGained = {},
+		FactionFloater = {},
+		PlayerEquippedItemChanged = {},
+	}
+	
 end
 
 -----------------------------------------------------------------------------------------------
@@ -125,33 +165,93 @@ end
 function CombatLog:OnCombatLogDamage(tEventArgs)
 	-- Example Combat Log Message: 17:18: Alvin uses Mind Stab on Space Pirate for 250 Magic damage (Critical).
 	local strDamageColor = self:HelperDamageColor(tEventArgs.eDamageType)
-	local tTextInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-	--local strCaster, strTarget, strSpellName, strColor = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-
+	local tTextInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)	
+	
 	-- System treats environment damage as coming from the player, so set the caster name and color correctly
 	local bEnvironmentDmg = tTextInfo.strCaster == tTextInfo.strTarget
 	if bEnvironmentDmg then
 		tTextInfo.strColor = kstrColorCombatLogIncomingBad
 	end
-
-	tTextInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tTextInfo.strSpellName)
-	local strDamage = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nDamageAmount)
-
+	
 	if tEventArgs.unitTarget and tEventArgs.unitTarget:IsMounted() then
 		tTextInfo.strTarget = String_GetWeaselString(Apollo.GetString("CombatLog_MountedTarget"), tTextInfo.strTarget)
 	end
-
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget)
-
-	if bEnvironmentDmg then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_EnvironmentDmg"), tTextInfo.strSpellName, tTextInfo.strTarget)
-	end
-
-	local strDamageType = Apollo.GetString("CombatLog_UnknownDamageType")
-	if tEventArgs.eDamageType then
+	
+	local strDamageType
+	if tEventArgs.eDamageType ~= nil then
 		strDamageType = self.tTypeMapping[tEventArgs.eDamageType]
+	else
+		strDamageType = Apollo.GetString("CombatLog_UnknownDamageType")
 	end
-
+	
+	local idx = 0x0
+	if bEnvironmentDmg then
+		idx = 0x1
+	end
+	
+	if tEventArgs.bPeriodic then
+		idx = idx + 0x2
+	elseif tEventArgs.eEffectType == Spell.CodeEnumSpellEffectType.DistanceDependentDamage then
+		idx = idx + 0x4
+	elseif tEventArgs.eEffectType == Spell.CodeEnumSpellEffectType.DistributedDamage then
+		idx = idx + 0x8
+	end
+	
+	if tEventArgs.nShield > 0 then
+		idx = idx + 0x10
+	end
+	
+	if tEventArgs.nAbsorption > 0 then
+		idx = idx + 0x20
+	end
+	
+	if tEventArgs.nGlanceAmount > 0 then
+		idx = idx + 0x40
+	end
+	
+	if tEventArgs.nOverkill > 0 then
+		idx = idx + 0x80
+	end
+	
+	if tEventArgs.bTargetVulnerable then
+		idx = idx + 0x100
+	end
+	
+	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
+		idx = idx + 0x200
+	end
+	
+	local strResult = self.tCache.CombatLogDamage[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount), tostring(tEventArgs.nOverkill)))
+		
+		if tEventArgs.bTargetKilled then
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(self.tCache.TargetKilled, tTextInfo.strCaster, tTextInfo.strTarget), "")
+		end
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	5 - damage type
+	6 - damage color
+	7 - damage amount
+	8 - shield amount
+	9 - absorb amount
+	10 - glance amount
+	11 - overkill amount
+	]]--
+	
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
+	
+	if bEnvironmentDmg then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_EnvironmentDmg"), { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
+	end
+	
 	local strDamageMethod = nil
 	if tEventArgs.bPeriodic then
 		strDamageMethod = Apollo.GetString("CombatLog_PeriodicDamage")
@@ -164,43 +264,42 @@ function CombatLog:OnCombatLogDamage(tEventArgs)
 	end
 
 	if strDamageMethod then
-		strResult = String_GetWeaselString(strDamageMethod, strResult, strDamage, strDamageType)
+		strResult = String_GetWeaselString(strDamageMethod, { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$7c</T>' }, { strLiteral = '$5n' })
 	end
 
-
-	if tEventArgs.nShield and tEventArgs.nShield > 0 then
-		local strAmountShielded = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nShield)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageShielded"), strResult, strAmountShielded)
+	if tEventArgs.nShield > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageShielded"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$8c</T>' })
 	end
 
-	if tEventArgs.nAbsorption and tEventArgs.nAbsorption > 0 then
-		local strAmountAbsorbed = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nAbsorption)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), strResult, strAmountAbsorbed)
+	if tEventArgs.nAbsorption > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$9c</T>' })
 	end
 	
-	if tEventArgs.nGlanceAmount and tEventArgs.nGlanceAmount > 0 then
-		local strAmountGlanced = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nGlanceAmount)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageGlanced"), strResult, strAmountGlanced)
+	if tEventArgs.nGlanceAmount > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageGlanced"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$(10)</T>' })
 	end
 
-	if tEventArgs.nOverkill and tEventArgs.nOverkill > 0 then
-		local strAmountOverkill = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nOverkill)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageOverkill"), strResult, strAmountOverkill)
+	if tEventArgs.nOverkill > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageOverkill"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$(11)</T>' })
 	end
 
 	if tEventArgs.bTargetVulnerable then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageVulnerable"), strResult)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageVulnerable"), { strLiteral = strResult })
 	end
 
 	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), strResult)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), { strLiteral = strResult })
 	end
 
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tTextInfo.strColor, strResult))
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogDamage[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount), tostring(tEventArgs.nOverkill)))
 
 	if tEventArgs.bTargetKilled then
-		local strKill = String_GetWeaselString(Apollo.GetString("CombatLog_TargetKilled"), tTextInfo.strCaster, tTextInfo.strTarget)
-		self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", kstrStateColor, strKill))
+		local strKill = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_TargetKilled"))
+		self.tCache.TargetKilled = strKill
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strKill, tTextInfo.strCaster, tTextInfo.strTarget), "")
 	end
 end
 
@@ -208,7 +307,6 @@ function CombatLog:OnCombatLogDamageShields(tEventArgs)
 	-- Example Combat Log Message: 17:18: Alvin uses Mind Stab on Space Pirate for 250 Magic damage to shields.
 	local strDamageColor = self:HelperDamageColor(tEventArgs.eDamageType)
 	local tTextInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-	--local strCaster, strTarget, strSpellName, strColor = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
 
 	tTextInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tTextInfo.strSpellName)
 	local strDamage = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nDamageAmount)
@@ -217,41 +315,89 @@ function CombatLog:OnCombatLogDamageShields(tEventArgs)
 		tTextInfo.strTarget = String_GetWeaselString(Apollo.GetString("CombatLog_MountedTarget"), tTextInfo.strTarget)
 	end
 
-	local strDamageType = Apollo.GetString("CombatLog_UnknownDamageType")
-	if tEventArgs.eDamageType then
+	local strDamageType
+	if tEventArgs.eDamageType ~= nil then
 		strDamageType = self.tTypeMapping[tEventArgs.eDamageType]
-	end
-
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseShieldDamage"), tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, strDamage, strDamageType)
-	
-	if tEventArgs.nShield and tEventArgs.nShield > 0 then
-		local strAmountShielded = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nShield)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageShielded"), strResult, strAmountShielded)
-	end
-
-	if tEventArgs.nAbsorption and tEventArgs.nAbsorption > 0 then
-		local strAmountAbsorbed = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nAbsorption)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), strResult, strAmountAbsorbed)
+	else
+		strDamageType = Apollo.GetString("CombatLog_UnknownDamageType")
 	end
 	
-	if tEventArgs.nGlanceAmount and tEventArgs.nGlanceAmount > 0 then
-		local strAmountGlanced = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nGlanceAmount)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageGlanced"), strResult, strAmountGlanced)
+	local idx = 0x0
+	if tEventArgs.nShield > 0 then
+		idx = 0x1
+	end
+	
+	if tEventArgs.nAbsorption > 0 then
+		idx = idx + 0x2
+	end
+	
+	if tEventArgs.nGlanceAmount > 0 then
+		idx = idx + 0x4
 	end
 	
 	if tEventArgs.bTargetVulnerable then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageVulnerable"), strResult)
+		idx = idx + 0x8
+	end
+	
+	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
+		idx = idx + 0x10
+	end
+	
+	local strResult = self.tCache.CombatLogDamageShields[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount)))
+		
+		if tEventArgs.bTargetKilled then
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(self.tCache.TargetKilled , tTextInfo.strCaster, tTextInfo.strTarget), "")
+		end
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	5 - damage type
+	6 - damage color
+	7 - damage amount
+	8 - shield amount
+	9 - absorb amount
+	10 - glance amount
+	]]--
+	
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseShieldDamage"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' }, { strLiteral = '<T TextColor="$6n">$7c</T>' }, { strLiteral = '$5n' })
+	
+	if tEventArgs.nShield > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageShielded"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$8c</T>' })
+	end
+
+	if tEventArgs.nAbsorption > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$9c</T>' })
+	end
+	
+	if tEventArgs.nGlanceAmount > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageGlanced"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$(10)</T>' })
+	end
+	
+	if tEventArgs.bTargetVulnerable then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageVulnerable"), { strLiteral = strResult })
 	end
 
 	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), strResult)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), { strLiteral = strResult })
 	end
-
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tTextInfo.strColor, strResult))
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogDamageShields[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount)))
 
 	if tEventArgs.bTargetKilled then
-		local strKill = String_GetWeaselString(Apollo.GetString("CombatLog_TargetKilled"), tTextInfo.strCaster, tTextInfo.strTarget)
-		self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", kstrStateColor, strKill))
+		local strKill = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_TargetKilled"))
+		self.tCache.TargetKilled = strKill
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strKill, tTextInfo.strCaster, tTextInfo.strTarget), "")
 	end
 end
 
@@ -259,49 +405,80 @@ function CombatLog:OnCombatLogReflect(tEventArgs)
 	-- Example Combat Log Message: 17:18: Alvin reflects Mind Stab back onto Space Pirate for 250 Magic damage.
 	local strDamageColor = self:HelperDamageColor(tEventArgs.eDamageType)
 	local tTextInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-	--local strCaster, strTarget, strSpellName, strColor = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-
-	tTextInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tTextInfo.strSpellName)
-	local strDamage = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nDamageAmount)
 
 	if tEventArgs.unitTarget and tEventArgs.unitTarget:IsMounted() then
 		tTextInfo.strTarget = String_GetWeaselString(Apollo.GetString("CombatLog_MountedTarget"), tTextInfo.strTarget)
 	end
 
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseReflect"), tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget)
-
-	local strDamageType = Apollo.GetString("CombatLog_UnknownDamageType")
-	if tEventArgs.eDamageType then
+	local strDamageType
+	if tEventArgs.eDamageType ~= nil then
 		strDamageType = self.tTypeMapping[tEventArgs.eDamageType]
-	end
-
-	local strDamageMethod = Apollo.GetString("CombatLog_BaseDamage")
-
-	if strDamageMethod then
-		strResult = String_GetWeaselString(strDamageMethod, strResult, strDamage, strDamageType)
-	end
-
-
-	if tEventArgs.nShield and tEventArgs.nShield > 0 then
-		local strAmountShielded = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nShield)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageShielded"), strResult, strAmountShielded)
-	end
-
-	if tEventArgs.nAbsorption and tEventArgs.nAbsorption > 0 then
-		local strAmountAbsorbed = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nAbsorption)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), strResult, strAmountAbsorbed)
+	else
+		strDamageType = Apollo.GetString("CombatLog_UnknownDamageType")
 	end
 	
-	if tEventArgs.nGlanceAmount and tEventArgs.nGlanceAmount > 0 then
-		local strAmountGlanced = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nGlanceAmount)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageGlanced"), strResult, strAmountGlanced)
+	local idx = 0x0
+	if tEventArgs.nShield > 0 then
+		idx = 0x1
+	end
+	
+	if tEventArgs.nAbsorption > 0 then
+		idx = idx + 0x2
+	end
+	
+	if tEventArgs.nGlanceAmount > 0 then
+		idx = idx + 0x4
+	end
+	
+	local strResult = self.tCache.CombatLogReflect[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount)))
+		
+		if tEventArgs.bTargetKilled then
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(self.tCache.TargetKilled , tTextInfo.strCaster, tTextInfo.strTarget), "")
+		end
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	5 - damage type
+	6 - damage color
+	7 - damage amount
+	8 - shield amount
+	9 - absorb amount
+	10 - glance amount
+	]]--
+	
+	
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseReflect"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseDamage"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$7c</T>' }, { strLiteral = '$5n' })
+
+	if tEventArgs.nShield > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageShielded"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$8c</T>' })
 	end
 
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tTextInfo.strColor, strResult))
+	if tEventArgs.nAbsorption > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$9c</T>' })
+	end
+	
+	if tEventArgs.nGlanceAmount > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageGlanced"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$(10)</T>' })
+	end
+
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogReflect[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount)))
 
 	if tEventArgs.bTargetKilled then
-		local strKill = String_GetWeaselString(Apollo.GetString("CombatLog_TargetKilled"), tTextInfo.strCaster, tTextInfo.strTarget)
-		self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", kstrStateColor, strKill))
+		local strKill = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_TargetKilled"))
+		self.tCache.TargetKilled = strKill
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strKill, tTextInfo.strCaster, tTextInfo.strTarget), "")
 	end
 end
 
@@ -309,57 +486,95 @@ function CombatLog:OnCombatLogMultiHit(tEventArgs)
 	-- Example Combat Log Message: 17:18: Alvin multi-hits with Mind Stab on Space Pirate for 250 Magic damage.
 	local strDamageColor = self:HelperDamageColor(tEventArgs.eDamageType)
 	local tTextInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-	--local strCaster, strTarget, strSpellName, strColor = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-
-	tTextInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tTextInfo.strSpellName)
-	local strDamage = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nDamageAmount)
 
 	if tEventArgs.unitTarget and tEventArgs.unitTarget:IsMounted() then
 		tTextInfo.strTarget = String_GetWeaselString(Apollo.GetString("CombatLog_MountedTarget"), tTextInfo.strTarget)
 	end
-
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseMultiHit"), tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget)
-
-	local strDamageType = Apollo.GetString("CombatLog_UnknownDamageType")
-	if tEventArgs.eDamageType then
+	
+	local strDamageType
+	if tEventArgs.eDamageType ~= nil then
 		strDamageType = self.tTypeMapping[tEventArgs.eDamageType]
-	end
-
-	local strDamageMethod = Apollo.GetString("CombatLog_BaseDamage")
-
-	if strDamageMethod then
-		strResult = String_GetWeaselString(strDamageMethod, strResult, strDamage, strDamageType)
-	end
-
-
-	if tEventArgs.nShield and tEventArgs.nShield > 0 then
-		local strAmountShielded = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nShield)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageShielded"), strResult, strAmountShielded)
-	end
-
-	if tEventArgs.nAbsorption and tEventArgs.nAbsorption > 0 then
-		local strAmountAbsorbed = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nAbsorption)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), strResult, strAmountAbsorbed)
+	else
+		strDamageType = Apollo.GetString("CombatLog_UnknownDamageType")
 	end
 	
-	if tEventArgs.nGlanceAmount and tEventArgs.nGlanceAmount > 0 then
-		local strAmountGlanced = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nGlanceAmount)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageGlanced"), strResult, strAmountGlanced)
+	local idx = 0x0
+	if tEventArgs.nShield > 0 then
+		idx = 0x1
+	end
+	
+	if tEventArgs.nAbsorption > 0 then
+		idx = idx + 0x2
+	end
+	
+	if tEventArgs.nGlanceAmount > 0 then
+		idx = idx + 0x4
+	end
+	
+	if tEventArgs.bTargetVulnerable then
+		idx = idx + 0x8
+	end
+	
+	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
+		idx = idx + 0x10
+	end
+	
+	local strResult = self.tCache.CombatLogMultiHit[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount)))
+		
+		if tEventArgs.bTargetKilled then
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(self.tCache.TargetKilled , tTextInfo.strCaster, tTextInfo.strTarget), "")
+		end
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	5 - damage type
+	6 - damage color
+	7 - damage amount
+	8 - shield amount
+	9 - absorb amount
+	10 - glance amount
+	]]--
+
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseMultiHit"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseDamage"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$7c</T>' }, { strLiteral = '$5n' })
+
+	if tEventArgs.nShield > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageShielded"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$8c</T>' })
+	end
+
+	if tEventArgs.nAbsorption > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$9c</T>' })
+	end
+	
+	if tEventArgs.nGlanceAmount > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageGlanced"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$(10)</T>' })
 	end
 
 	if tEventArgs.bTargetVulnerable then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageVulnerable"), strResult)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageVulnerable"), { strLiteral = strResult })
 	end
 
 	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), strResult)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), { strLiteral = strResult })
 	end
 
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tTextInfo.strColor, strResult))
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogMultiHit[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount)))
 
 	if tEventArgs.bTargetKilled then
-		local strKill = String_GetWeaselString(Apollo.GetString("CombatLog_TargetKilled"), tTextInfo.strCaster, tTextInfo.strTarget)
-		self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", kstrStateColor, strKill))
+		local strKill = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_TargetKilled"))
+		self.tCache.TargetKilled = strKill
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strKill, tTextInfo.strCaster, tTextInfo.strTarget), "")
 	end
 end
 
@@ -367,223 +582,480 @@ function CombatLog:OnCombatLogMultiHitShields(tEventArgs)
 	-- Example Combat Log Message: 17:18: Alvin multi-hits shields with Mind Stab on Space Pirate for 250 Magic damage.
 	local strDamageColor = self:HelperDamageColor(tEventArgs.eDamageType)
 	local tTextInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-	--local strCaster, strTarget, strSpellName, strColor = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-
-	tTextInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tTextInfo.strSpellName)
-	local strDamage = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nDamageAmount)
 
 	if tEventArgs.unitTarget and tEventArgs.unitTarget:IsMounted() then
 		tTextInfo.strTarget = String_GetWeaselString(Apollo.GetString("CombatLog_MountedTarget"), tTextInfo.strTarget)
 	end
-
-	local strDamageType = Apollo.GetString("CombatLog_UnknownDamageType")
-	if tEventArgs.eDamageType then
+	
+	local strDamageType
+	if tEventArgs.eDamageType ~= nil then
 		strDamageType = self.tTypeMapping[tEventArgs.eDamageType]
-	end
-
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseMultiHitShields"), tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, strDamage, strDamageType)
-
-	if tEventArgs.nShield and tEventArgs.nShield > 0 then
-		local strAmountShielded = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nShield)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageShielded"), strResult, strAmountShielded)
-	end
-
-	if tEventArgs.nAbsorption and tEventArgs.nAbsorption > 0 then
-		local strAmountAbsorbed = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nAbsorption)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), strResult, strAmountAbsorbed)
+	else
+		strDamageType = Apollo.GetString("CombatLog_UnknownDamageType")
 	end
 	
-	if tEventArgs.nGlanceAmount and tEventArgs.nGlanceAmount > 0 then
+	local idx = 0x0
+	if tEventArgs.nShield > 0 then
+		idx = 0x1
+	end
+	
+	if tEventArgs.nAbsorption > 0 then
+		idx = idx + 0x2
+	end
+	
+	if tEventArgs.nGlanceAmount > 0 then
+		idx = idx + 0x4
+	end
+	
+	if tEventArgs.bTargetVulnerable then
+		idx = idx + 0x8
+	end
+	
+	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
+		idx = idx + 0x10
+	end
+	
+	local strResult = self.tCache.CombatLogMultiHitShields[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount)))
+		
+		if tEventArgs.bTargetKilled then
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(self.tCache.TargetKilled , tTextInfo.strCaster, tTextInfo.strTarget), "")
+		end
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	5 - damage type
+	6 - damage color
+	7 - damage amount
+	8 - shield amount
+	9 - absorb amount
+	10 - glance amount
+	]]--
+
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseMultiHitShields"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' }, { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$7c</T>' }, { strLiteral = '$5n' })
+
+	if tEventArgs.nShield > 0 then
+		local strAmountShielded = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nShield)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageShielded"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$8c</T>' })
+	end
+
+	if tEventArgs.nAbsorption > 0 then
+		local strAmountAbsorbed = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nAbsorption)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$9c</T>' })
+	end
+	
+	if tEventArgs.nGlanceAmount > 0 then
 		local strAmountGlanced = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nGlanceAmount)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageGlanced"), strResult, strAmountGlanced)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageGlanced"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$6n">$(10)</T>' })
 	end
 
 	if tEventArgs.bTargetVulnerable then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageVulnerable"), strResult)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageVulnerable"), { strLiteral = strResult })
 	end
 
 	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), strResult)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), { strLiteral = strResult })
 	end
 
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tTextInfo.strColor, strResult))
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogMultiHitShields[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount)))
 
 	if tEventArgs.bTargetKilled then
-		local strKill = String_GetWeaselString(Apollo.GetString("CombatLog_TargetKilled"), tTextInfo.strCaster, tTextInfo.strTarget)
-		self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", kstrStateColor, strKill))
+		local strKill = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_TargetKilled"))
+		self.tCache.TargetKilled = strKill
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strKill, tTextInfo.strCaster, tTextInfo.strTarget), "")
 	end
 end
 
 function CombatLog:OnCombatLogFallingDamage(tEventArgs)
 	-- Example Combat Log Message: 17:18: Alvin suffers 246 falling damage
 	local strCaster = self:HelperGetNameElseUnknown(tEventArgs.unitCaster)
-	local strDamage = string.format("<T TextColor=\"%s\">%s</T>", self:HelperDamageColor(tEventArgs.eDamageType), tEventArgs.nDamageAmount)
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_FallingDamage"), strCaster, strDamage)
-	self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrColorCombatLogIncomingBad, strResult))
+	local strDamageColor = self:HelperDamageColor(tEventArgs.eDamageType)
+	
+	local strResult = self.tCache.CombatLogFallingDamage[0]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strCaster, strDamageColor, tEventArgs.nDamageAmount))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - damage color
+	3 - damage amount
+	]]--
+	
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_FallingDamage"), { strLiteral = '$1n' }, { strLiteral = '<T TextColor="$2n">$3c</T>' })
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrColorCombatLogIncomingBad, strResult)
+	self.tCache.CombatLogFallingDamage[0] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strCaster, strDamageColor, tEventArgs.nDamageAmount))
 end
 
 function CombatLog:OnCombatLogDeflect(tEventArgs)
 	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-	tCastInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tCastInfo.strSpellName)
-
-	local strResult = ""
+	
+	local idx = 0x0
 	if tEventArgs.bMultiHit then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseMultiHit"), tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget)
-	else
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget)
+		idx = 0x1
 	end
-	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Deflect"), strResult)
+	
+	local strResult = self.tCache.CombatLogDeflect[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget, tCastInfo.strColor))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	]]--
 
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tCastInfo.strColor, strResult))
+	if tEventArgs.bMultiHit then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseMultiHit"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
+	else
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
+	end
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Deflect"), { strLiteral = strResult })
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogDeflect[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget, tCastInfo.strColor))
 end
 
 function CombatLog:OnCombatLogImmunity(tEventArgs)
 	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-	tCastInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tCastInfo.strSpellName)
+	
+	local strResult = self.tCache.CombatLogImmunity[0]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget, tCastInfo.strColor))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	]]--
 
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget)
-	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Immune"), strResult)
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Immune"), { strLiteral = strResult })
 
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tCastInfo.strColor, strResult))
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogImmunity[0] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget, tCastInfo.strColor))
 end
 
 function CombatLog:OnCombatLogDispel(tEventArgs)
 	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-	tCastInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tCastInfo.strSpellName)
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget)
-
-	local strAppend = Apollo.GetString("CombatLog_DispelSingle")
-	if tEventArgs.bRemovesSingleInstance then
-		strAppend = Apollo.GetString("CombatLog_DispelMultiple")
-	end
-
+	
 	local tSpellCount =
 	{
-		["name"] = Apollo.GetString("CombatLog_SpellUnknown"),
 		["count"] = tEventArgs.nInstancesRemoved
 	}
 
 	local strArgRemovedSpellName = tEventArgs.splRemovedSpell:GetName()
-	if strArgRemovedSpellName and strArgRemovedSpellName~= "" then
+	if strArgRemovedSpellName and strArgRemovedSpellName ~= "" then
 		tSpellCount["name"] = strArgRemovedSpellName
+	else
+		tSpellCount["name"] = Apollo.GetString("CombatLog_SpellUnknown")
 	end
+	
+	local idx = 0x0
+	if tEventArgs.bRemovesSingleInstance then
+		idx = 0x1
+	end
+	
+	local strResult = self.tCache.CombatLogDispel[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget, tCastInfo.strColor, tSpellCount))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	5 - tSpellCount
+	]]--
+	
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
 
-	strResult = String_GetWeaselString(strAppend, strResult, tSpellCount)
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tCastInfo.strColor, strResult))
+	if tEventArgs.bRemovesSingleInstance then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DispelMultiple"), { strLiteral = strResult }, { strLiteral = '$+(5)' })
+	else
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DispelSingle"), { strLiteral = strResult }, { strLiteral = '$5n' })
+	end
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogDispel[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget, tCastInfo.strColor, tSpellCount))
 end
 
 function CombatLog:OnCombatLogHeal(tEventArgs)
-
 	local strDamageColor = self:HelperDamageColor(tEventArgs.eDamageType)
 	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-	tCastInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tCastInfo.strSpellName)
-	local strAmount = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nHealAmount)
 
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget)
+	local idx = 0x0
+	if tEventArgs.eEffectType == Spell.CodeEnumSpellEffectType.HealShields then
+		idx = 0x1
+	end
+	
+	if tEventArgs.nOverheal > 0 then
+		idx = idx + 0x2
+	end
+	
+	if tEventArgs.nAbsorption > 0 then
+		idx = idx + 0x4
+	end
+	
+	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
+		idx = idx + 0x8
+	end
+	
+	local strResult = self.tCache.CombatLogHeal[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget, tCastInfo.strColor, strDamageColor, tEventArgs.nHealAmount, tEventArgs.nOverheal, tEventArgs.nAbsorption))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	5 - damage color
+	6 - heal amount
+	7 - overheal amount
+	8 - heal absorbed amount
+	]]--
+	
+	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
 
-	local strHealType = ""
+	local strHealType
 	if tEventArgs.eEffectType == Spell.CodeEnumSpellEffectType.HealShields then
 		strHealType = Apollo.GetString("CombatLog_HealShield")
 	else
 		strHealType = Apollo.GetString("CombatLog_HealHealth")
 	end
-	strResult = String_GetWeaselString(strHealType, strResult, strAmount)
+	strResult = String_GetWeaselString(strHealType, { strLiteral = strResult }, { strLiteral = '<T TextColor="$5n">$6c</T>' })
 
-	if tEventArgs.nOverheal and tEventArgs.nOverheal > 0 then
-		local strOverhealAmount = string.format("<T TextColor=\"white\">%s</T>", tEventArgs.nOverheal)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Overheal"), strResult, strOverhealAmount)
+	if tEventArgs.nOverheal > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Overheal"), { strLiteral = strResult }, { strLiteral = '<T TextColor="white">$7c</T>' })
 	end
 	
-	if tEventArgs.nAbsorption and tEventArgs.nAbsorption > 0 then
-		local strAmountAbsorbed = string.format("<T TextColor=\"white\">%s</T>", tEventArgs.nAbsorption)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), strResult, strAmountAbsorbed)
+	if tEventArgs.nAbsorption > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), { strLiteral = strResult }, { strLiteral = '<T TextColor="white">$8c</T>' })
 	end
 
 	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), strResult)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), { strLiteral = strResult })
 	end
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tCastInfo.strColor, strResult))
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogHeal[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget, tCastInfo.strColor, strDamageColor, tEventArgs.nHealAmount, tEventArgs.nOverheal, tEventArgs.nAbsorption))
 end
 
 function CombatLog:OnCombatLogMultiHeal(tEventArgs)
 	-- -- Example Combat Log Message: 17:18: Alvin multi-hits with Mental Boon on Trevor for 250 health.
 	local strDamageColor = self:HelperDamageColor(tEventArgs.eDamageType)
-	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-	tCastInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tCastInfo.strSpellName)
-	local strAmount = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nHealAmount)
+	local tTextInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
 
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseMultiHit"), tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget)
+	local idx = 0x0
+	if tEventArgs.eEffectType == Spell.CodeEnumSpellEffectType.HealShields then
+		idx = 0x1
+	end
+	
+	if tEventArgs.nOverheal > 0 then
+		idx = idx + 0x2
+	end
+	
+	if tEventArgs.nAbsorption > 0 then
+		idx = idx + 0x4
+	end
+	
+	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
+		idx = idx + 0x8
+	end
+	
+	local strResult = self.tCache.CombatLogMultiHeal[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageColor, tEventArgs.nHealAmount, tEventArgs.nOverheal, tEventArgs.nAbsorption))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	5 - damage color
+	6 - heal amount
+	7 - overheal amount
+	8 - heal absorbed amount
+	]]--
+	
+	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseMultiHit"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
 
-	local strHealType = ""
+	local strHealType
 	if tEventArgs.eEffectType == Spell.CodeEnumSpellEffectType.HealShields then
 		strHealType = Apollo.GetString("CombatLog_HealShield")
 	else
 		strHealType = Apollo.GetString("CombatLog_HealHealth")
 	end
-	strResult = String_GetWeaselString(strHealType, strResult, strAmount)
+	strResult = String_GetWeaselString(strHealType, { strLiteral = strResult }, { strLiteral = '<T TextColor="$5n">$6c</T>' })
 
-	if tEventArgs.nOverheal and tEventArgs.nOverheal > 0 then
-		local strOverhealAmount = string.format("<T TextColor=\"white\">%s</T>", tEventArgs.nOverheal)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Overheal"), strResult, strOverhealAmount)
+	if tEventArgs.nOverheal > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Overheal"), { strLiteral = strResult }, { strLiteral = '<T TextColor="white">$7c</T>' })
 	end
 	
-	if tEventArgs.nAbsorption and tEventArgs.nAbsorption > 0 then
-		local strAmountAbsorbed = string.format("<T TextColor=\"white\">%s</T>", tEventArgs.nAbsorption)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), strResult, strAmountAbsorbed)
+	if tEventArgs.nAbsorption > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), { strLiteral = strResult }, { strLiteral = '<T TextColor="white">$8c</T>' })
 	end
 
 	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), strResult)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), { strLiteral = strResult })
 	end
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tCastInfo.strColor, strResult))
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogMultiHeal[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageColor, tEventArgs.nHealAmount, tEventArgs.nOverheal, tEventArgs.nAbsorption))
 end
 
 function CombatLog:OnCombatLogModifyInterruptArmor(tEventArgs)
+	local tTextInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
 
-	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-	tCastInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tCastInfo.strSpellName)
-	local strArmorCount = string.format("<T TextColor=\"white\">%d</T>", tEventArgs.nAmount)
-
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget)
-	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_InterruptArmor"), strResult, strArmorCount)
+	local idx = 0x0
 	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), strResult)
+		idx = 0x1
 	end
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tCastInfo.strColor, strResult))
+	
+	local strResult = self.tCache.CombatLogModifyInterruptArmor[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, tEventArgs.nAmount))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	5 - amount
+	]]--
+	
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_InterruptArmor"), strResult, { strLiteral = '<T TextColor="white">$5c</T>' })
+	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), { strLiteral = strResult })
+	end
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogModifyInterruptArmor[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, tEventArgs.nAmount))
 end
 
 function CombatLog:OnCombatLogAbsorption(tEventArgs)
-	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-
-	tCastInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tCastInfo.strSpellName)
+	local tTextInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
 	local strDamageColor = self:HelperDamageColor(tEventArgs.eDamageType)
-	local strAbsorbAmount = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nAmount)
+	
+	local idx = 0x0
+	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
+		idx = 0x1
+	end
+	
+	local strResult = self.tCache.CombatLogAbsorption[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageColor, tEventArgs.nAmount))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	5 - damage color
+	6 - amount
+	]]--
 
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget)
-	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_GrantAbsorption"), strResult, strAbsorbAmount)
+	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_GrantAbsorption"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$5n">$6c</T>' })
 
 	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
-		self:PostOnChannel("Absorption")
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), strResult)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), { strLiteral = strResult })
 	end
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tCastInfo.strColor, strResult))
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogAbsorption[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageColor, tEventArgs.nAmount))
 end
 
 function CombatLog:OnCombatLogHealingAbsorption(tEventArgs)
-	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-
-	tCastInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tCastInfo.strSpellName)
+	local tTextInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
 	local strDamageColor = self:HelperDamageColor(tEventArgs.eDamageType)
-	local strAbsorbAmount = string.format("<T TextColor=\"%s\">%s</T>", strDamageColor, tEventArgs.nAmount)
 
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget)
-	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_GrantAbsorption"), strResult, strAbsorbAmount)
+	local idx = 0x0
+	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
+		idx = 0x1
+	end
+	
+	local strResult = self.tCache.CombatLogHealingAbsorption[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageColor, tEventArgs.nAmount))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	5 - damage color
+	6 - amount
+	]]--
+	
+	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_GrantAbsorption"), { strLiteral = strResult }, { strLiteral = '<T TextColor="$5n">$6c</T>' })
 
 	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
-		self:PostOnChannel("Absorption")
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), strResult)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), { strLiteral = strResult })
 	end
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tCastInfo.strColor, strResult))
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogHealingAbsorption[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageColor, tEventArgs.nAmount))
 end
 
 function CombatLog:OnCombatLogVitalModifier(tEventArgs)
@@ -592,45 +1064,83 @@ function CombatLog:OnCombatLogVitalModifier(tEventArgs)
 		return
 	end
 
-	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
-	local strVital = Apollo.GetString("CombatLog_UnknownVital")
+	local tTextInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
+	local strVital
 	if tEventArgs.eVitalType and tEventArgs.unitCaster then
 		strVital = tEventArgs.unitCaster:GetResourceName(tEventArgs.eVitalType)
 		if strVital == nil then
 			strVital = Unit.GetVitalTable()[tEventArgs.eVitalType].strName
 		end
-	end
-
-	local strValue = string.format("<T TextColor=\"%s\">%s</T>", self.crVitalModifier, tEventArgs.nAmount)
-
-	local strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tCastInfo.strSpellName)
-	local strResult = ""
-	if tEventArgs.nAmount < 0 then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_LoseVital"), tCastInfo.strTarget, strValue, strVital, strSpellName)
 	else
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_GainVital"), tCastInfo.strTarget, strValue, strVital, strSpellName)
+		strVital = Apollo.GetString("CombatLog_UnknownVital")
 	end
-
+	
+	local idx = 0x0
+	if tEventArgs.nAmount < 0 then
+		idx = 0x1
+	end
+	
 	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
-		self:PostOnChannel("VitalMod")
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), strResult)
+		idx = idx + 0x2
 	end
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", tCastInfo.strColor, strResult))
+	
+	local strResult = self.tCache.CombatLogVitalModifier[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, self.crVitalModifier, tEventArgs.nAmount, strVital))
+		
+		return
+	end
+	
+	--[[
+	1 - spell name
+	2 - target name
+	3 - text color
+	4 - vital color
+	5 - amount
+	6 - vital name
+	]]--
+	
+	if tEventArgs.nAmount < 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_LoseVital"), { strLiteral = '$2n' }, { strLiteral = '<T TextColor="$4n">$5c</T>' }, { strLiteral = '$6n' }, { strLiteral = string.format('<T Font="%s">$1n</T>', kstrFontBold) })
+	else
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_GainVital"), { strLiteral = '$2n' }, { strLiteral = '<T TextColor="$4n">$5c</T>' }, { strLiteral = '$6n' }, { strLiteral = string.format('<T Font="%s">$1n</T>', kstrFontBold) })
+	end
+	
+	if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), { strLiteral = strResult })
+	end
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$3n">%s</P>', strResult)
+	self.tCache.CombatLogVitalModifier[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, self.crVitalModifier, tEventArgs.nAmount, strVital))
 end
 
 function CombatLog:OnCombatLogCCState(tEventArgs)
 	if not self.unitPlayer then
 		self.unitPlayer = GameLib.GetControlledUnit()
 	end
-
-	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, true, false)
+	
 	if tEventArgs.unitTarget == self.unitPlayer then
+		local idx = 0x0
 		if not tEventArgs.bRemoved then
-			local strState = String_GetWeaselString(Apollo.GetString("CombatLog_CCState"), tEventArgs.strState)
-			self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", kstrStateColor, strState))
+			idx = 0x1
+		end
+		
+		local strResult = self.tCache.CombatLogCCStateSelf[idx]
+		if strResult then
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.strState))
 		else
-			local strState = String_GetWeaselString(Apollo.GetString("CombatLog_CCFades"), tEventArgs.strState)
-			self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", kstrStateColor, strState))
+			if not tEventArgs.bRemoved then
+				strResult = String_GetWeaselString(Apollo.GetString("CombatLog_CCState"), { strLiteral = string.format('<T TextColor="%s">$1n</T>', kstrStateColor) })
+			else
+				strResult = String_GetWeaselString(Apollo.GetString("CombatLog_CCFades"), { strLiteral = string.format('<T TextColor="%s">$1n</T>', kstrStateColor) })
+			end
+			
+			strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$3n">%s</P>', strResult)
+			self.tCache.CombatLogCCStateSelf[idx] = strResult
+			
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.strState))
 		end
 	end
 
@@ -639,45 +1149,102 @@ function CombatLog:OnCombatLogCCState(tEventArgs)
 		return
 	end
 
+	local tTextInfo = self:HelperCasterTargetSpell(tEventArgs, true, true, true)
+	
+	local idx = 0x0
+	if tEventArgs.eResult == CombatFloater.CodeEnumCCStateApplyRulesResult.Stacking_DoesNotStack then
+		idx = 0x1
+	elseif tEventArgs.eResult == CombatFloater.CodeEnumCCStateApplyRulesResult.Target_Immune then
+		idx = idx + 0x2
+	end
+	
+	if tEventArgs.nInterruptArmorHit > 0 and tEventArgs.unitTarget and tEventArgs.unitTarget:GetInterruptArmorValue() > 0 then
+		idx = idx + 0x4
+	end
+	
+	local nRemainingIA = tEventArgs.unitTarget and tEventArgs.unitTarget:GetInterruptArmorValue() - tEventArgs.nInterruptArmorHit or -1
+	if nRemainingIA >= 0 then
+		idx = idx + 0x8
+	end
+	
+	local strResult = self.tCache.CombatLogCCState[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, tEventArgs.strState, tEventArgs.nInterruptArmorHit, nRemainingIA))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	5 - state
+	6 - interrupt armor hit
+	7 - remaining interrupt armor
+	]]--
+	
 	-- display the effects of the cc state
-	tCastInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tEventArgs.splCallingSpell:GetName())
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget)
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_BaseSkillUse"), { strLiteral = '$1n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) }, { strLiteral = '$3n' })
 
 	if tEventArgs.eResult == CombatFloater.CodeEnumCCStateApplyRulesResult.Stacking_DoesNotStack then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_CCDoesNotStack"), strResult, tEventArgs.strState)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_CCDoesNotStack"), { strLiteral = strResult }, { strLiteral = '$5n' })
 	elseif tEventArgs.eResult == CombatFloater.CodeEnumCCStateApplyRulesResult.Target_Immune then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_CCImmune"), strResult)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_CCImmune"), { strLiteral = strResult })
 	else
-		local strEffect = string.format("<T TextColor=\"white\">%s</T>", tEventArgs.strState)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_CCSideEffect"), strResult, strEffect)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_CCSideEffect"), { strLiteral = strResult }, { strLiteral = '<T TextColor="white">$5n</T>' })
 	end
 
 	if tEventArgs.nInterruptArmorHit > 0 and tEventArgs.unitTarget and tEventArgs.unitTarget:GetInterruptArmorValue() > 0 then
-		local strAmount = string.format("<T TextColor=\"white\">-%s</T>", tEventArgs.nInterruptArmorHit)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_InterruptArmorRemoved"), strResult, strAmount)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_InterruptArmorRemoved"), { strLiteral = strResult }, { strLiteral = '<T TextColor="white">-$6c</T>' })
 	end
-
-	local nRemainingIA = tEventArgs.unitTarget and tEventArgs.unitTarget:GetInterruptArmorValue() - tEventArgs.nInterruptArmorHit or -1
+	
 	if nRemainingIA >= 0 then
-		local strAmount = string.format("<T TextColor=\"white\">%s</T>", nRemainingIA)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_InterruptArmorLeft"), strResult, strAmount)
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_InterruptArmorLeft"), { strLiteral = strResult }, { strLiteral = '<T TextColor="white">-$7c</T>' })
 	end
-
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", self:HelperPickColor(tEventArgs), strResult))
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogCCState[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, tEventArgs.strState, tEventArgs.nInterruptArmorHit, nRemainingIA))
 end
 
 -----------------------------------------------------------------------------------------------
 -- Special
 -----------------------------------------------------------------------------------------------
 function CombatLog:OnCombatLogLifeSteal(tEventArgs)
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLogLifesteal"), tEventArgs.unitCaster:GetName(), tEventArgs.nHealthStolen)
-	
-	if tEventArgs.nAbsorption and tEventArgs.nAbsorption > 0 then
-		local strAmountAbsorbed = string.format("<T TextColor=\"white\">%s</T>", tEventArgs.nAbsorption)
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), strResult, strAmountAbsorbed)
+	local strCasterName = tEventArgs.unitCaster:GetName()
+	local strTextColor = self:HelperPickColor(tEventArgs)
+
+	local idx = 0x0
+	if tEventArgs.nAbsorption > 0 then
+		idx = 0x1
 	end
 	
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", self:HelperPickColor(tEventArgs), strResult))
+	local strResult = self.tCache.CombatLogLifeSteal[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strCasterName, tEventArgs.nHealthStolen, tEventArgs.nAbsorption, strTextColor))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - health stolen
+	3 - absorb amount
+	4 - text color
+	]]--
+
+	strResult = Apollo.GetString("CombatLogLifesteal")
+	
+	if tEventArgs.nAbsorption > 0 then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), { strLiteral = strResult }, { strLiteral = '<T TextColor="white">$3n</T>' })
+	end
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogLifeSteal[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strCasterName, tEventArgs.nHealthStolen, tEventArgs.nAbsorption, strTextColor))
 end
 
 function CombatLog:OnCombatLogTransference(tEventArgs)
@@ -690,13 +1257,17 @@ function CombatLog:OnCombatLogTransference(tEventArgs)
 	-- OnCombatLogDamage does exactly what we need so just pass along the tEventArgs
 	self:OnCombatLogDamage(tEventArgs)
 	
+	local tVitals = Unit.GetVitalTable()
+	
 	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, true, false)
 	-- healing data is stored in a table where each subtable contains a different vital that was healed
 	for _, tHeal in ipairs(tEventArgs.tHealData) do
 		if not bDisableOtherPlayers or self.unitPlayer == tHeal.unitHealed then
-			local strVital = Apollo.GetString("CombatLog_UnknownVital")
+			local strVital
 			if tHeal.eVitalType then
-				strVital = Unit.GetVitalTable()[tHeal.eVitalType].strName
+				strVital = tVitals[tHeal.eVitalType].strName
+			else
+				strVital = Apollo.GetString("CombatLog_UnknownVital")
 			end
 			
 			-- units in caster's group can get healed
@@ -704,36 +1275,71 @@ function CombatLog:OnCombatLogTransference(tEventArgs)
 				tCastInfo.strTarget = tCastInfo.strCaster
 				tCastInfo.strCaster = self:HelperGetNameElseUnknown(tHeal.unitHealed)
 			end
-
-			local strAmount = string.format("<T TextColor=\"%s\">%s</T>", self.crVitalModifier, tHeal.nHealAmount)
-			local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_GainVital"), tCastInfo.strCaster, strAmount, strVital, tCastInfo.strTarget)
-
-			if tHeal.nOverheal and tHeal.nOverheal > 0 then
-				local strOverhealString = ""
-				if tHeal.eVitalType == GameLib.CodeEnumVital.ShieldCapacity then
-					strOverhealString = Apollo.GetString("CombatLog_Overshield")
-				else
-					strOverhealString = Apollo.GetString("CombatLog_Overheal")
-				end
-				strAmount = string.format("<T TextColor=\"white\">%s</T>", tHeal.nOverheal)
-				strResult = String_GetWeaselString(strOverhealString, strResult, strAmount)
-			end
 			
-			if tHeal.nAbsorption and tHeal.nAbsorption > 0 then
-				local strAmountAbsorbed = string.format("<T TextColor=\"white\">%s</T>", tHeal.nAbsorption)
-				strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), strResult, strAmountAbsorbed)
-			end
-
-			if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
-				strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), strResult)
-			end
-
-			-- TODO: Analyze if we can refactor (this has no spell)
 			local strColor = kstrColorCombatLogIncomingGood
 			if tEventArgs.unitCaster ~= self.unitPlayer then
 				strColor = kstrColorCombatLogOutgoing
 			end
-			self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", strColor, strResult))
+			
+			local idx = 0x0
+			if tHeal.nOverheal > 0 then
+				idx = 0x1
+				if tHeal.eVitalType == GameLib.CodeEnumVital.ShieldCapacity then
+					idx = idx + 0x2
+				end
+			end
+			
+			if tHeal.nOverheal > 0 then
+				idx = idx + 0x4
+			end
+			
+			if tHeal.nAbsorption > 0 then
+				idx = idx + 0x8
+			end
+			
+			if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
+				idx = idx + 0x10
+			end
+			
+			--[[
+			1 - caster name
+			2 - vital
+			3 - text color
+			4 - target name
+			5 - vital color
+			6 - heal amount
+			7 - overheal
+			8 - absorb
+			]]--
+			
+			local strResult = self.tCache.CombatLogTransference[idx]
+			if strResult then
+				ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, strVital, strColor, tCastInfo.strTarget, self.crVitalModifier, tHeal.nHealAmount, tHeal.nOverheal, tHeal.nAbsorption))
+			else
+				strResult = String_GetWeaselString(Apollo.GetString("CombatLog_GainVital"), { strLiteral = '$1n' }, { strLiteral = '<T TextColor="$5n">$6c</T>' }, { strLiteral = '$2n' }, { strLiteral = '$4n' })
+				
+				if tHeal.nOverheal > 0 then
+					local strOverhealString
+					if tHeal.eVitalType == GameLib.CodeEnumVital.ShieldCapacity then
+						strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Overshield"), { strLiteral = strResult }, { strLiteral = '<T TextColor="white">$7c</T>' })
+					else
+						strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Overheal"), { strLiteral = strResult }, { strLiteral = '<T TextColor="white">$7c</T>' })
+					end
+				end
+				
+				if tHeal.nAbsorption > 0 then
+					strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DamageAbsorbed"), { strLiteral = strResult }, { strLiteral = '<T TextColor="white">$8c</T>' })
+				end
+				
+				if tEventArgs.eCombatResult == GameLib.CodeEnumCombatResult.Critical then
+					strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Critical"), { strLiteral = strResult })
+				end
+				
+				strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$3n">%s</P>', strResult)
+				self.tCache.CombatLogTransference[idx] = strResult
+				
+				ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, strVital, strColor, tCastInfo.strTarget, self.crVitalModifier, tHeal.nHealAmount, tHeal.nOverheal, tHeal.nAbsorption))
+			end
 		end
 	end
 end
@@ -744,25 +1350,53 @@ function CombatLog:OnCombatLogInterrupted(tEventArgs)
 	end
 
 	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, true, true)
-	tCastInfo.strSpellName = string.format("<T Font=\"%s\">%s</T>", kstrFontBold, tCastInfo.strSpellName)
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_TargetInterrupted"), tCastInfo.strTarget, tCastInfo.strSpellName) -- NOTE: strTarget is first, usually strCaster is first
-
-	if tEventArgs.unitCaster ~= tEventArgs.unitTarget then
-		if tEventArgs.splInterruptingSpell and tEventArgs.splInterruptingSpell:GetName() then
-			strResult = String_GetWeaselString(Apollo.GetString("CombatLog_InterruptSourceCaster"), strResult, tEventArgs.unitCaster:GetName(), tEventArgs.splInterruptingSpell:GetName())
-		else
-			strResult = String_GetWeaselString(Apollo.GetString("CombatLog_InterruptSource"), strResult, tEventArgs.unitCaster:GetName())
-		end
-	elseif tEventArgs.strCastResult and tEventArgs.strCastResult ~= "" then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_InterruptSelf"), strResult, tEventArgs.strCastResult)
-	end
-
-	-- TODO: Analyze if we can refactor (this has a unique spell)
+	
 	local strColor = kstrColorCombatLogIncomingGood
 	if tEventArgs.unitCaster == self.unitPlayer then
 		strColor = kstrColorCombatLogOutgoing
 	end
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", strColor, strResult))
+	
+	local idx = 0x0
+	if tEventArgs.unitCaster ~= tEventArgs.unitTarget then
+		if tEventArgs.splInterruptingSpell and tEventArgs.splInterruptingSpell:GetName() then
+			idx = idx + 0x1
+		else
+			idx = idx + 0x2
+		end
+	end
+	
+	local strResult = self.tCache.CombatLogInterrupted[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strCasterName, tCastInfo.strSpellName, tCastInfo.strTarget, strColor, tEventArgs.splInterruptingSpell:GetName(), tEventArgs.strCastResult))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	3 - target name
+	4 - text color
+	5 - interrupting spell name
+	6 - cast result
+	]]--
+	
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_TargetInterrupted"), { strLiteral = '$3n' }, { strLiteral = string.format('<T Font="%s">$2n</T>', kstrFontBold) })
+	
+	if tEventArgs.unitCaster ~= tEventArgs.unitTarget then
+		if tEventArgs.splInterruptingSpell and tEventArgs.splInterruptingSpell:GetName() then
+			strResult = String_GetWeaselString(Apollo.GetString("CombatLog_InterruptSourceCaster"), { strLiteral = strResult }, { strLiteral = '$p(1)' }, { strLiteral = '$5n' })
+		else
+			strResult = String_GetWeaselString(Apollo.GetString("CombatLog_InterruptSource"), { strLiteral = strResult }, { strLiteral = '$1n' })
+		end
+	elseif tEventArgs.strCastResult and tEventArgs.strCastResult ~= "" then
+		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_InterruptSelf"), { strLiteral = strResult }, { strLiteral = '$6n' })
+	end
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
+	self.tCache.CombatLogInterrupted[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strCasterName, tCastInfo.strSpellName, tCastInfo.strTarget, strColor, tEventArgs.splInterruptingSpell:GetName(), tEventArgs.strCastResult))
 end
 
 function CombatLog:OnCombatLogKillStreak(tEventArgs)
@@ -771,32 +1405,79 @@ function CombatLog:OnCombatLogKillStreak(tEventArgs)
 	end
 
 	local strCaster = self:HelperGetNameElseUnknown(tEventArgs.unitCaster)
-	local strResult = Apollo.GetString("CombatLog_Achieves")
-	local strStreakType = ""
+	
+	local idx = 0x0
 	if tEventArgs.eStatType == CombatFloater.CodeEnumCombatMomentum.Impulse then
-		strStreakType = String_GetWeaselString(Apollo.GetString("CombatLog_ImpulseStreak"), tEventArgs.nStreakAmount)
+		idx = idx + 0x1
+	else
+		if tEventArgs.nStreakAmount == 2 then
+			idx = idx + 0x2
+		elseif tEventArgs.nStreakAmount == 3 then
+			idx = idx + 0x4
+		end
+	end
+	
+	if tEventArgs.unitCaster == self.unitPlayer then
+		idx = idx + 0x8
+	end
+	
+	local strResult = self.tCache.CombatLogKillStreak[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strCaster, tEventArgs.nStreakAmount))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - streak amount
+	]]--
+	
+	local strStreakType
+	if tEventArgs.eStatType == CombatFloater.CodeEnumCombatMomentum.Impulse then
+		strStreakType = String_GetWeaselString(Apollo.GetString("CombatLog_ImpulseStreak"), { strLiteral = '$2c' })
 	else
 		if tEventArgs.nStreakAmount == 2 then
 			strStreakType = Apollo.GetString("CombatLog_DoubleKill")
 		elseif tEventArgs.nStreakAmount == 3 then
 			strStreakType = Apollo.GetString("CombatLog_TripleKill")
 		else
-			strStreakType = String_GetWeaselString(Apollo.GetString("CombatLog_MultiKill"), tEventArgs.nStreakAmount)
+			strStreakType = String_GetWeaselString(Apollo.GetString("CombatLog_MultiKill"), { strLiteral = '$2c' })
 		end
 	end
-	strResult = String_GetWeaselString(strResult, strCaster, strStreakType)
-
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Achieves"), { strLiteral = '$1n' }, { strLiteral = strStreakType })
+	
 	-- TODO: Analyze if we can refactor (this has no spell and uses default)
 	if tEventArgs.unitCaster == self.unitPlayer then
-		self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", kstrColorCombatLogOutgoing, strResult))
+		strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrColorCombatLogOutgoing, strResult)
 	else
-		self:PostOnChannel(strResult)
+		strResult = string.format('<P Font="CRB_InterfaceMedium">%s</P>', strResult)
 	end
+	
+	self.tCache.CombatLogKillStreak[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strCaster, tEventArgs.nStreakAmount))
 end
 
 function CombatLog:OnCombatLogKillPVP(tEventArgs)
 	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, true, false)
-	self:PostOnChannel(String_GetWeaselString(Apollo.GetString("CombatLog_KillAssist"), tCastInfo.strCaster, tCastInfo.strTarget))
+	
+	local strResult = self.tCache.CombatLogKillPVP[0]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strTarget))
+		
+		return
+	end
+
+	--[[
+	1 - caster name
+	2 - target name
+	]]--
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium">%s</P>', Apollo.GetString("CombatLog_KillAssist"))
+	self.tCache.CombatLogKillPVP[0] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strTarget))
 end
 
 -----------------------------------------------------------------------------------------------
@@ -804,64 +1485,205 @@ end
 -----------------------------------------------------------------------------------------------
 
 function CombatLog:OnCombatLogCCStateBreak(tEventArgs)
-	local strBreak = String_GetWeaselString(Apollo.GetString("CombatLog_CCBroken"), tEventArgs.strState)
-	self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrStateColor, strBreak))
+	local strResult = self.tCache.CombatLogCCStateBreak[0]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.strState))
+		
+		return
+	end
+	
+	--[[
+	1 - state
+	]]--
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_CCBroken"))
+	self.tCache.CombatLogCCStateBreak[0] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.strState))
 end
 
 function CombatLog:OnCombatLogDelayDeath(tEventArgs)
 	local tCastInfo = self:HelperCasterTargetSpell(tEventArgs, false, true)
-	local strSaved = String_GetWeaselString(Apollo.GetString("CombatLog_NotDeadYet"), tCastInfo.strCaster, tCastInfo.strSpellName)
-	self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrStateColor, strSaved))
+	
+	local strResult = self.tCache.CombatLogDelayDeath[0]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strSpellName))
+		
+		return
+	end
+	
+	--[[
+	1 - caster name
+	2 - spell name
+	]]--
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_NotDeadYet"))
+	self.tCache.CombatLogDelayDeath[0] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strSpellName))
 end
 
 function CombatLog:OnCombatLogDeath(tEventArgs)
-	self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrStateColor, Apollo.GetString("CombatLog_Death")))
+	local strResult = self.tCache.CombatLogDeath[0]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, strResult)
+		
+		return
+	end
+	
+	--[[
+	]]--
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_Death"))
+	self.tCache.CombatLogCCStateBreak[0] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, strResult)
 end
 
 function CombatLog:OnCombatLogStealth(tEventArgs)
-	local strResult = ""
+	local idx = 0x0
+	if tEventArgs.bExiting then
+		idx = idx + 0x1
+	end
+
+	local strResult = self.tCache.CombatLogStealth[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, strResult)
+		
+		return
+	end
+	
+	--[[
+	]]--
+
 	if tEventArgs.bExiting then
 		strResult = Apollo.GetString("CombatLog_LeaveStealth")
 	else
 		strResult = Apollo.GetString("CombatLog_EnterStealth")
 	end
-	self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrStateColor, strResult))
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, strResult)
+	self.tCache.CombatLogStealth[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, strResult)
 end
 
 function CombatLog:OnCombatLogMount(tEventArgs)
-	local strResult = ""
+	local strTarget = self:HelperGetNameElseUnknown(tEventArgs.unitTarget)
+
+	local idx = 0x0
+	if tEventArgs.bDismounted then
+		idx = idx + 0x1
+	end
+	
+	local strResult = self.tCache.CombatLogMount[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strTarget))
+		
+		return
+	end
+
+	--[[
+	1 - target name
+	]]--
+	
 	if tEventArgs.bDismounted then
 		strResult = Apollo.GetString("CombatLog_Dismount")
 	else
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Summon"), self:HelperGetNameElseUnknown(tEventArgs.unitTarget))
+		strResult = Apollo.GetString("CombatLog_Summon")
 	end
-	self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrStateColor, strResult))
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, strResult)
+	self.tCache.CombatLogMount[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strTarget))
 end
 
 function CombatLog:OnCombatLogPet(tEventArgs)
-	local strResult = ""
 	local strTarget = self:HelperGetNameElseUnknown(tEventArgs.unitTarget)
+
+	local idx = 0x0
 	if tEventArgs.bDismissed then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DismissPet"), strTarget)
+		idx = idx + 0x1
 	elseif tEventArgs.bKilled then
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_TargetDies"), strTarget)
-	else
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Summon"), strTarget)
+		idx = idx + 0x2
 	end
-	self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrStateColor, strResult))
+	
+	local strResult = self.tCache.CombatLogPet[idx]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strTarget))
+		
+		return
+	end
+	
+	--[[
+	1 - target name
+	]]--
+	
+	if tEventArgs.bDismissed then
+		strResult = Apollo.GetString("CombatLog_DismissPet")
+	elseif tEventArgs.bKilled then
+		strResult = Apollo.GetString("CombatLog_TargetDies")
+	else
+		strResult = Apollo.GetString("CombatLog_Summon")
+	end
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, strResult)
+	self.tCache.CombatLogPet[idx] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strTarget))
 end
 
 function CombatLog:OnCombatLogResurrect(tEventArgs)
-	self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrStateColor, Apollo.GetString("CombatLog_Resurrect")))
+	local strResult = self.tCache.CombatLogResurrect[0]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, strResult)
+		
+		return
+	end
+	
+	--[[
+	]]--
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_Resurrect"))
+	self.tCache.CombatLogResurrect[0] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, strResult)
 end
 
 function CombatLog:OnCombatLogLAS(tEventArgs)
-	self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrStateColor, Apollo.GetString("CombatLog_LAS")))
+	local strResult = self.tCache.CombatLogLAS[0]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, strResult)
+		
+		return
+	end
+	
+	--[[
+	]]--
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_LAS"))
+	self.tCache.CombatLogLAS[0] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, strResult)
 end
 
 function CombatLog:OnCombatLogBuildSwitch(tEventArgs)
-	local strBuildSwitch = String_GetWeaselString(Apollo.GetString("CombatLog_BuildSwitch"), tEventArgs.nNewSpecIndex)
-	self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrStateColor, strBuildSwitch))
+	local strResult = self.tCache.CombatLogBuildSwitch[0]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.nNewSpecIndex))
+		
+		return
+	end
+
+	--[[
+	1 - spec index
+	]]--
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_BuildSwitch"))
+	self.tCache.CombatLogBuildSwitch[0] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.nNewSpecIndex))
 end
 
 -----------------------------------------------------------------------------------------------
@@ -870,29 +1692,85 @@ end
 
 function CombatLog:OnCombatLogExperience(tEventArgs)
 	if tEventArgs.nXP > 0 then
-		local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_XPGain"), tEventArgs.nXP)
-		self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrColorCombatLogXP, strResult))
+		local strResult = self.tCache.CombatLogExperience[0]
+		if strResult then
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.nXP))
+		else
+			--[[
+			1 - xp
+			]]--
+			
+			strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrColorCombatLogXP, Apollo.GetString("CombatLog_XPGain"))
+			self.tCache.CombatLogExperience[0] = strResult
+			
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.nXP))
+		end
 	end
 
 	if tEventArgs.nRestXP > 0 then
-		local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_RestXPGain"), tEventArgs.nRestXP)
-		self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrColorCombatLogXP, strResult))
+		local strResult = self.tCache.CombatLogExperience[1]
+		if strResult then
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.nRestXP))
+		else
+			--[[
+			1 - rest xp
+			]]--
+			
+			strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrColorCombatLogXP, Apollo.GetString("CombatLog_RestXPGain"))
+			self.tCache.CombatLogExperience[1] = strResult
+			
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.nRestXP))
+		end
 	end
 
 	if tEventArgs.nElderPoints > 0 then
-		local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_ElderPointsGained"), tEventArgs.nElderPoints)
-		self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrColorCombatLogXP, strResult))
+		local strResult = self.tCache.CombatLogExperience[2]
+		if strResult then
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.nElderPoints))
+		else
+			--[[
+			1 - elder points
+			]]--
+			
+			strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrColorCombatLogXP, Apollo.GetString("CombatLog_ElderPointsGained"))
+			self.tCache.CombatLogExperience[2] = strResult
+			
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.nElderPoints))
+		end
 	end
 
 	if tEventArgs.nRestEP > 0 then
-		local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_RestEPGain"), tEventArgs.nRestEP)
-		self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrColorCombatLogXP, strResult))
+		local strResult = self.tCache.CombatLogExperience[3]
+		if strResult then
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.nRestEP))
+		else
+			--[[
+			1 - rest elder points
+			]]--
+			
+			strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrColorCombatLogXP, Apollo.GetString("CombatLog_RestEPGain"))
+			self.tCache.CombatLogExperience[3] = strResult
+			
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tEventArgs.nRestEP))
+		end
 	end
 end
 
 function CombatLog:OnCombatLogElderPointsLimitReached(tEventArgs)
-	local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_ElderPointLimitReached"))
-	self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrColorCombatLogXP, strResult))
+	local strResult = self.tCache.CombatLogElderPointsLimitReached[0]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult))
+		
+		return
+	end
+	
+	--[[
+	]]--
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrColorCombatLogXP, Apollo.GetString("CombatLog_ElderPointLimitReached"))
+	self.tCache.CombatLogExperience[0] = strResult
+
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult))
 end
 
 
@@ -900,11 +1778,25 @@ function CombatLog:OnCombatLogDurabilityLoss(tEventArgs)
 	if not self.unitPlayer then
 		self.unitPlayer = GameLib.GetControlledUnit()
 	end
-
+	
 	if tEventArgs.unitCaster ~= self.unitPlayer then
-		local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_DurabilityLoss"), tEventArgs.nAmount)
-		self:PostOnChannel(string.format("<P TextColor=\"%s\">%s</P>", kstrLootColor, strResult))
+		return
 	end
+	
+	local strResult = self.tCache.CombatLogDurabilityLoss[0]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult))
+		
+		return
+	end
+	
+	--[[
+	]]--
+	
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrLootColor, Apollo.GetString("CombatLog_DurabilityLoss"))
+	self.tCache.CombatLogDurabilityLoss[0] = strResult
+
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult))
 end
 
 -----------------------------------------------------------------------------------------------
@@ -912,23 +1804,50 @@ end
 -----------------------------------------------------------------------------------------------
 
 function CombatLog:OnPathExperienceGained(nAmount, strText)
-	if nAmount > 0 then
-		local strAmount = string.format("<T TextColor=\"ffffffff\">%s</T>", nAmount)
-		local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_PathXPGained"), strAmount)
-
-		self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", kstrColorCombatLogPathXP, strResult))
+	if nAmount <= 0 then
+		return
 	end
+	
+	local strResult = self.tCache.PathExperienceGained[0]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, nAmount))
+		
+		return
+	end
+	
+	--[[
+	1 - amount
+	]]--
+	
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_PathXPGained"), { strLiteral = '<T TextColor="ffffffff">$1n</T>' })
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrColorCombatLogPathXP, strResult)
+	self.tCache.PathExperienceGained[0] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, nAmount))
 end
 
 function CombatLog:OnFactionFloater(unitTarget, pstrMessage, nAmount, strFactionName, nFactionId) -- Reputation Floater
-	if nAmount > 0 then
-		strFactionName = string.format("<T TextColor=\"ffffffff\">%s</T>", strFactionName)
-		local strAmount = string.format("<T TextColor=\"ffffffff\">%s</T>", nAmount)
-
-		local strResult = String_GetWeaselString(Apollo.GetString("CombatLog_RepGained"), strFactionName, strAmount)
-
-		self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", kstrColorCombatLogRep, strResult))
+	if nAmount <= 0 then
+		return
 	end
+	
+	local strResult = self.tCache.FactionFloater[0]
+	if strResult then
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strFactionName, nAmount))
+		
+		return
+	end
+	
+	--[[
+	1 - faction name
+	2 - amount
+	]]--
+	
+	strResult = String_GetWeaselString(Apollo.GetString("CombatLog_RepGained"), { strLiteral = '<T TextColor="ffffffff">$1n</T>' }, { strLiteral = '<T TextColor="ffffffff">$2c</T>' })
+	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrColorCombatLogRep, strResult)
+	self.tCache.FactionFloater[0] = strResult
+	
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strFactionName, nAmount))
 end
 
 function CombatLog:OnPetStatusUpdated()
@@ -955,8 +1874,7 @@ function CombatLog:OnPlayerEquippedItemChanged(nEquippedSlot, itemNew, itemOld)
 			strResult = String_GetWeaselString(Apollo.GetString("CombatLog_Equip"), strNewItemName, strNewItemTypeName)
 		end
 	end
-	self:PostOnChannel(string.format("<T TextColor=\"%s\">%s</T>", kstEquipColor, strResult))
-
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstEquipColor, strResult))
 end
 
 -----------------------------------------------------------------------------------------------
@@ -973,14 +1891,20 @@ function CombatLog:HelperCasterTargetSpell(tEventArgs, bTarget, bSpell, bColor)
 	}
 
 	tInfo.strCaster = self:HelperGetNameElseUnknown(tEventArgs.unitCaster)
-	if tEventArgs.unitCasterOwner and tEventArgs.unitCasterOwner:GetName() then
-		tInfo.strCaster = string.format("%s (%s)", tInfo.strCaster, tEventArgs.unitCasterOwner:GetName())
+	if tEventArgs.unitCasterOwner ~= nil then
+		local strOwnerName = tEventArgs.unitCasterOwner:GetName()
+		if strOwnerName ~= nil then
+			tInfo.strCaster = string.format("%s (%s)", tInfo.strCaster, strOwnerName)
+		end
 	end
 
 	if bTarget then
 		tInfo.strTarget = self:HelperGetNameElseUnknown(tEventArgs.unitTarget)
-		if tEventArgs.unitTargetOwner and tEventArgs.unitTargetOwner:GetName() then
-			tInfo.strTarget = string.format("%s (%s)", tInfo.strTarget, tEventArgs.unitTargetOwner:GetName())
+		if tEventArgs.unitTargetOwner ~= nil then
+			local strOwnerName = tEventArgs.unitTargetOwner:GetName()
+			if strOwnerName ~= nil then
+				tInfo.strTarget = string.format("%s (%s)", tInfo.strTarget, strOwnerName)
+			end
 		end
 
 		if bColor then
@@ -996,8 +1920,11 @@ function CombatLog:HelperCasterTargetSpell(tEventArgs, bTarget, bSpell, bColor)
 end
 
 function CombatLog:HelperGetNameElseUnknown(nArg)
-	if nArg and nArg:GetName() then
-		return nArg:GetName()
+	if nArg ~= nil then
+		local strName = nArg:GetName()
+		if strName ~= nil then
+			return strName
+		end
 	end
 	return Apollo.GetString("CombatLog_SpellUnknown")
 end
@@ -1024,12 +1951,12 @@ function CombatLog:HelperPickColor(tEventArgs)
 	end
 
 	-- Try pets second
-	for idx, tPetUnit in pairs(self.tPetUnits) do
-		if tEventArgs.unitCaster == tPetUnit then
+	for idx, unitPet in pairs(self.tPetUnits) do
+		if tEventArgs.unitCaster == unitPet then
 			return kstrColorCombatLogOutgoing
-		elseif tEventArgs.unitTarget == tPetUnit and tEventArgs.splCallingSpell and tEventArgs.splCallingSpell:IsBeneficial() then
+		elseif tEventArgs.unitTarget == unitPet and tEventArgs.splCallingSpell and tEventArgs.splCallingSpell:IsBeneficial() then
 			return kstrColorCombatLogIncomingGood
-		elseif tEventArgs.unitTarget == tPetUnit then
+		elseif tEventArgs.unitTarget == unitPet then
 			return kstrColorCombatLogIncomingBad
 		end
 	end
