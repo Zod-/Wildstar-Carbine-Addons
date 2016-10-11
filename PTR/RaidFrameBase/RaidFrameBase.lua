@@ -131,13 +131,13 @@ function RaidFrameBase:new(o)
 		bShowLeaderIcons		= true,
 		bShowClassIcons			= false,
 		bShowMarkIcons			= false,
-		bShowFocusBar			= false,
+		bShowFocusBar			= true,
 		bShowFixedShields		= false,
 		bShowCategories			= true,
 		bShowNames				= true,
 		bLockInCombat			= true,
 		bInstantHealthUpdate	= false,
-		nRowSize				= 1,
+		nRowSize				= 4,
 		nNumColumns				= 1,
 		bIsLocked				= false,
 	}
@@ -446,11 +446,11 @@ function RaidFrameBase:DrawHealth(tWndMember, nHealthCurr, nHealthMax, nShieldCu
 	
 	-- Health Bar Color
 	if (nHealthCurr / nHealthMax) < knHealthCritical then
-		wndHealthBar:SetFullSprite("sprRaid_HealthProgBar_Red")
+		wndHealthBar:SetFullSprite("sprRaid_HealthProgBar_Red2")
 	elseif (nHealthCurr / nHealthMax) < knHealthWarn then
-		wndHealthBar:SetFullSprite("sprRaid_HealthProgBar_Orange")
+		wndHealthBar:SetFullSprite("sprRaid_HealthProgBar_Orange2")
 	else
-		wndHealthBar:SetFullSprite("sprRaid_HealthProgBar_Green")
+		wndHealthBar:SetFullSprite("sprRaid_HealthProgBar_Green2")
 	end
 	
 	-- Focus Bar
@@ -643,12 +643,13 @@ function RaidFrameBase:BuildMember(wndMemberContainer, tMember)
 			nLastKnownHealth = tMember.nHealth,
 			wndMember = wndMember,
 			wndMemberBtn = wndMember:FindChild("RaidMemberBtn"),
-			wndHealthBar = wndMember:FindChild("RaidMemberBtn:HealthBar"),
-			wndHealingAbsorbBar = wndMember:FindChild("RaidMemberBtn:HealingAbsorbBar"),
-			wndHealthClampMin = wndMember:FindChild("RaidMemberBtn:HealthClampMin"),
-			wndHealthClampMax = wndMember:FindChild("RaidMemberBtn:HealthClampMax"),
-			wndAbsorbBar = wndMember:FindChild("RaidMemberBtn:AbsorbBar"),
-			wndShieldBar = wndMember:FindChild("RaidMemberBtn:ShieldBar"),
+			wndPrimaryBar = wndMember:FindChild("RaidMemberBtn:PrimaryResourceBar"),
+			wndHealthBar = wndMember:FindChild("RaidMemberBtn:PrimaryResourceBar:HealthBar"),
+			wndHealingAbsorbBar = wndMember:FindChild("RaidMemberBtn:PrimaryResourceBar:HealingAbsorbBar"),
+			wndHealthClampMin = wndMember:FindChild("RaidMemberBtn:PrimaryResourceBar:HealthClampMin"),
+			wndHealthClampMax = wndMember:FindChild("RaidMemberBtn:PrimaryResourceBar:HealthClampMax"),
+			wndAbsorbBar = wndMember:FindChild("RaidMemberBtn:PrimaryResourceBar:AbsorbBar"),
+			wndShieldBar = wndMember:FindChild("RaidMemberBtn:PrimaryResourceBar:ShieldBar"),
 			wndFocusBar = wndMember:FindChild("RaidMemberBtn:RaidMemberFocusBar"),
 			wndParent = wndMemberContainer,
 		}
@@ -687,12 +688,20 @@ function RaidFrameBase:BuildMember(wndMemberContainer, tMember)
 	local wndClass = wndRaidMemberIcons:FindChild("RaidMemberClassIcon")
 	wndClass:SetSprite(ktIdToClassSprite[tMember.eClassId])
 	wndClass:Show(self.tSettings.bShowClassIcons)
-	
-	local wndMark = wndRaidMemberIcons:FindChild("RaidMemberMarkIcon")
+
+	if self.tSettings.bShowClassIcons then
+		local nLeft, nTop, nRight, nBottom = wndRaidMemberIcons:GetOriginalLocation():GetOffsets()
+		wndRaidMemberIcons:SetAnchorOffsets(nLeft, nTop, nRight, nBottom)		
+	else
+		local nLeft, nTop, nRight, nBottom = wndRaidMemberIcons:GetOriginalLocation():GetOffsets()
+		wndRaidMemberIcons:SetAnchorOffsets(-12, -3, nRight, nBottom)
+	end	
+		
+	local wndMark = wndMember:FindChild("RaidMemberMarkIcon")
 	wndMark:SetSprite(kstrRaidMarkerToSprite[tMember.nMarkerId])
 	wndMark:Show(self.tSettings.bShowMarkIcons)
 	
-	local nIconsWidth = wndRaidMemberIcons:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.LeftOrTop)
+	local nIconsWidth = self.tSettings.bShowClassIcons and wndRaidMemberIcons:GetWidth() or 0
 	local nBarsLeft, nBarsTop, nBarsRight, nBarsBottom = wndRaidMemberBtn:GetAnchorOffsets()	
 	wndRaidMemberBtn:SetAnchorOffsets(nIconsWidth, nBarsTop, nBarsRight, nBarsBottom)
 	
@@ -738,6 +747,14 @@ function RaidFrameBase:BuildMember(wndMemberContainer, tMember)
 		tWndMember.wndShieldBar:SetAnchorPoints(0.0, nTop, nRight, nBottom)
 	end
 	
+	if self.tSettings.bShowFocusBar then
+		local nLeft, nTop, nRight, nBottom = tWndMember.wndPrimaryBar:GetOriginalLocation():GetOffsets()
+		tWndMember.wndPrimaryBar:SetAnchorOffsets(nLeft, nTop, nRight, nBottom)	
+	else 
+		local nLeft, nTop, nRight, nBottom = tWndMember.wndPrimaryBar:GetAnchorOffsets()
+		tWndMember.wndPrimaryBar:SetAnchorOffsets(nLeft, nTop, nRight, 0)
+	end
+	
 	local wndName = wndRaidMemberBtn:FindChild("RaidMemberName")
 	wndName:Show(self.tSettings.bShowNames)
 	
@@ -750,7 +767,7 @@ function RaidFrameBase:BuildMember(wndMemberContainer, tMember)
 		wndMemberStatus:SetSprite("CRB_Raid:sprRaid_HealthProgBar_Grey")
 		wndName:SetText(String_GetWeaselString(Apollo.GetString("Group_OfflineMember"), tMember.strCharacterName))
 	elseif bDead then
-		wndMemberStatus:SetSprite("CRB_Raid:sprRaid_HealthProgBar_Red")
+		wndMemberStatus:SetSprite("CRB_Raid:sprRaid_HealthProgBar_Red2")
 		wndName:SetText(String_GetWeaselString(Apollo.GetString("Group_DeadMember"), tMember.strCharacterName))
 	elseif bOutOfRange and tMember.nMemberIdx ~= 1 then
 		wndMemberStatus:SetSprite("")
