@@ -153,6 +153,7 @@ globals = {
   "IsStoreOpen",
   "Item",
   "ItemAuction",
+  "LeaderboardLib",
   "LiveEvent",
   "LiveEventsLib",
   "LuaEnumMessageType",
