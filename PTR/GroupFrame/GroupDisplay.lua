@@ -119,6 +119,7 @@ local ktInviteResultStrings =
 	[GroupLib.Result.NotAcceptingRequests] 	= {strMsg = Apollo.GetString("Group_NotAcceptingRequests"), 	strIcon = ktMessageIcon.Deny},
 	[GroupLib.Result.Busy]				 	= {strMsg = Apollo.GetString("Group_Busy"), 					strIcon = ktMessageIcon.Deny},
 	[GroupLib.Result.PrivilegeRestricted] 	= {strMsg = Apollo.GetString("Group_Invite_PrivilegeRestricted"),strIcon = ktMessageIcon.Deny},
+	[GroupLib.Result.PvPFlagRestriction] 	= {strMsg = Apollo.GetString("GroupResultFailedDueToPvPFlag")	,strIcon = ktMessageIcon.Deny},
 }
 
 local ktJoinRequestResultStrings =
@@ -143,6 +144,7 @@ local ktJoinRequestResultStrings =
 	[GroupLib.Result.LeaderOffline]		 	= {strMsg = Apollo.GetString("Group_LeaderOffline"), 				strIcon = ktMessageIcon.Deny},
 	[GroupLib.Result.WrongFaction]		 	= {strMsg = Apollo.GetString("GroupWrongFaction"), 					strIcon = ktMessageIcon.Deny},
 	[GroupLib.Result.PrivilegeRestricted]	= {strMsg = Apollo.GetString("Group_Join_PrivilegeRestricted"), 	strIcon = ktMessageIcon.Deny},
+	[GroupLib.Result.PvPFlagRestriction] 	= {strMsg = Apollo.GetString("GroupResultFailedDueToPvPFlag")		,strIcon = ktMessageIcon.Deny},
 }
 
 local ktReferralStrings =
@@ -165,11 +167,12 @@ local ktReferralStrings =
 
 local ktGroupLeftResultStrings =
 {
-	[GroupLib.RemoveReason.Kicked] 			= {strMsg = Apollo.GetString("Group_Kicked"), 			strIcon = ktMessageIcon.Kicked},
-	[GroupLib.RemoveReason.VoteKicked] 		= {strMsg = Apollo.GetString("Group_Kicked"), 			strIcon = ktMessageIcon.Kicked},
-	[GroupLib.RemoveReason.Left] 			= {strMsg = Apollo.GetString("InstancePartyLeave"), 	strIcon = ktMessageIcon.Left},
-	[GroupLib.RemoveReason.Disband] 		= {strMsg = Apollo.GetString("GroupDisband"), 			strIcon = ktMessageIcon.Disbanded},
-	[GroupLib.RemoveReason.RemovedByServer] = {strMsg = Apollo.GetString("Group_KickedByServer"), 	strIcon = ktMessageIcon.Left},
+	[GroupLib.RemoveReason.Kicked] 					  = {strMsg = Apollo.GetString("Group_Kicked"), 						strIcon = ktMessageIcon.Kicked},
+	[GroupLib.RemoveReason.VoteKicked] 				  = {strMsg = Apollo.GetString("Group_Kicked"), 						strIcon = ktMessageIcon.Kicked},
+	[GroupLib.RemoveReason.Left] 					  = {strMsg = Apollo.GetString("InstancePartyLeave"), 				strIcon = ktMessageIcon.Left},
+	[GroupLib.RemoveReason.Disband] 				  = {strMsg = Apollo.GetString("GroupDisband"), 						strIcon = ktMessageIcon.Disbanded},
+	[GroupLib.RemoveReason.RemovedByServer] 		  = {strMsg = Apollo.GetString("Group_KickedByServer"), 				strIcon = ktMessageIcon.Left},
+	[GroupLib.RemoveReason.RemovedByServerForPvPFlag] = {strMsg = Apollo.GetString("Group_KickedByServerForPvPFlagging"),	strIcon = ktMessageIcon.Left},	
 }
 
 local ktLootRules =
