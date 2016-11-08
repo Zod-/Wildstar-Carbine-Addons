@@ -354,6 +354,11 @@ function ContextMenuPlayer:RedrawAll()
 	-- Early exit, else continue only if target is a character
 	-----------------------------------------------------------------------------------------------
 
+	if unitTarget and not unitTarget:IsACharacter() then
+		self:ResizeAndRedraw()
+		return
+	end
+	
 	if unitTarget and unitTarget:IsACharacter() then
 		if unitTarget ~= unitPlayer then
 			-- Trade always visible, just enabled/disabled
