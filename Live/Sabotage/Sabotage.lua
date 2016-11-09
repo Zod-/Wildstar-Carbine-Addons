@@ -137,7 +137,7 @@ function Sabotage:OnChangeWorld()
 end
 
 function Sabotage:OnWarPlotOneSecMatchTimer()
-	if not self.peMatch then
+	if not MatchingGameLib.GetPvpMatchState() or not self.peMatch then
 		self:CheckForSabotage()
 		return
 	end

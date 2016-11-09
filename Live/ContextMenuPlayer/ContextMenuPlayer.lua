@@ -186,7 +186,6 @@ function ContextMenuPlayer:RedrawAllFriend()
 	local bInGroup = GroupLib.InGroup()
 	local tCharacterData = GameLib.SearchRelationshipStatusByCharacterName(strTarget)
 
-	local bCanWhisper = tFriend ~= nil and (tFriend.fLastOnline == 0 and not tFriend.bIgnore and tFriend.nFactionId == unitPlayer:GetFaction() or tFriend.bSuggested)
 	local bCanAccountWisper = tAccountFriend ~= nil and tAccountFriend.arCharacters and tAccountFriend.arCharacters[1] ~= nil
 	local bIsFriend = (tFriend ~= nil and tFriend.bFriend) or (tCharacterData ~= nil and tCharacterData.tFriend ~= nil and tCharacterData.tFriend.bFriend)
 	local bIsRival = (tFriend ~= nil and tFriend.bRival) or (tCharacterData ~= nil and tCharacterData.tFriend ~= nil and tCharacterData.tFriend.bRival)
@@ -206,17 +205,9 @@ function ContextMenuPlayer:RedrawAllFriend()
 	end
 	
 	if bCanAccountWisper then
-		bCanWhisper = tAccountFriend.arCharacters[1] ~= nil
-			and tAccountFriend.arCharacters[1].strRealm == GameLib.GetRealmName()
-			and tAccountFriend.arCharacters[1].nFactionId == unitPlayer:GetFaction()
-	end
-
-	if bCanWhisper and not bCanAccountWisper then
-		self:HelperBuildRegularButton(wndButtonList, "BtnWhisper", Apollo.GetString("ContextMenu_Whisper"))
-	end
-
-	if bCanAccountWisper then
 		self:HelperBuildRegularButton(wndButtonList, "BtnAccountWhisper", Apollo.GetString("ContextMenu_AccountWhisper"))
+	else
+		self:HelperBuildRegularButton(wndButtonList, "BtnWhisper", Apollo.GetString("ContextMenu_Whisper"))
 	end
 
 	if tFriend and tFriend.bIgnore then
@@ -236,12 +227,12 @@ function ContextMenuPlayer:RedrawAllFriend()
 	local bAccountFriendOnline = tAccountFriend and tAccountFriend.fLastOnline == 0
 	local bFriendOnline = tFriend and tFriend.fLastOnline == 0
 	
-	if (bAccountFriendOnline or bFriendOnline) and (not bInGroup or (GroupLib.GetGroupMember(1).bCanInvite and bCanWhisper)) and not bCrossFaction then
+	if (bAccountFriendOnline or bFriendOnline) and (not bInGroup or (GroupLib.GetGroupMember(1).bCanInvite)) then
 		--In SocialPanel, we don't care if they are part of a group, because we can't reliably test it.
 		self:HelperBuildRegularButton(wndButtonList, "BtnInvite", Apollo.GetString("ContextMenu_InviteToGroup"))
 	end
 	
-	if (bAccountFriendOnline or bFriendOnline) and (not bInGroup or bCanWhisper) and not bCrossFaction then
+	if (bAccountFriendOnline or bFriendOnline) and (not bInGroup) then
 		--In SocialPanel, we don't care if they are part of a group, because we can't reliably test it.
 		self:HelperBuildRegularButton(wndButtonList, "BtnJoin", Apollo.GetString("CRB_Join_Group"))
 	end	
@@ -250,13 +241,13 @@ function ContextMenuPlayer:RedrawAllFriend()
 		if tAccountFriend == nil then
 			self:HelperBuildRegularButton(wndSocialListItems, "BtnUnfriend", Apollo.GetString("ContextMenu_RemoveFriend"))
 		end
-	elseif (tFriend ~= nil and (tFriend.nFactionId == unitPlayer:GetFaction() or tFriend.bSuggested)) or (bCanAccountWisper and bCanWhisper) then
+	else
 		self:HelperBuildRegularButton(wndSocialListItems, "BtnAddFriend", Apollo.GetString("ContextMenu_AddFriend"))
 	end
 
 	if bIsNeighbor then
 		self:HelperBuildRegularButton(wndSocialListItems, "BtnUnneighbor", Apollo.GetString("ContextMenu_RemoveNeighbor"))
-	elseif ((tFriend ~= nil or bCanAccountWisper) and not bCrossFaction and not bIsRival) or (tFriend and tFriend.bSuggested) then
+	elseif ((tFriend ~= nil or bCanAccountWisper) and not bIsRival) or (tFriend and tFriend.bSuggested) then
 		self:HelperBuildRegularButton(wndSocialListItems, "BtnAddNeighbor", Apollo.GetString("ContextMenu_AddNeighbor"))
 	end	
 	
@@ -292,7 +283,6 @@ function ContextMenuPlayer:RedrawAll()
 		return
 	end
 
-	local bCrossFaction = self.bCrossFaction
 	local strTarget = self.strTarget
 	local unitTarget = self.unitTarget
 	local wndButtonList = self.wndMain:FindChild("ButtonList")
@@ -305,7 +295,8 @@ function ContextMenuPlayer:RedrawAll()
 	local tMyGroupData = GroupLib.GetGroupMember(1)
 	local tCharacterData = GameLib.SearchRelationshipStatusByCharacterName(strTarget)
 	local tTargetGroupData = (tCharacterData and tCharacterData.nPartyIndex) and GroupLib.GetGroupMember(tCharacterData.nPartyIndex) or nil
-
+	local bIsEitherPvPFlagged = (unitPlayer ~= nil and unitPlayer:IsPvpFlagged()) or (unitTarget ~= nil and unitTarget:IsPvpFlagged())
+	
 	-----------------------------------------------------------------------------------------------
 	-- Even if hostile/neutral
 	-----------------------------------------------------------------------------------------------
@@ -357,19 +348,19 @@ function ContextMenuPlayer:RedrawAll()
 				self:HelperBuildRegularButton(wndButtonList, "BtnAddRival", Apollo.GetString("ContextMenu_AddRival"))
 			end
 		end
-
-		self:ResizeAndRedraw()
-		return
 	end
 
 	-----------------------------------------------------------------------------------------------
 	-- Early exit, else continue only if target is a character
 	-----------------------------------------------------------------------------------------------
 
+	if unitTarget and not unitTarget:IsACharacter() then
+		self:ResizeAndRedraw()
+		return
+	end
+	
 	if unitTarget and unitTarget:IsACharacter() then
 		if unitTarget ~= unitPlayer then
-			self:HelperBuildRegularButton(wndButtonList, "BtnInspect", Apollo.GetString("ContextMenu_Inspect"))
-			
 			-- Trade always visible, just enabled/disabled
 			local eCanTradeResult = P2PTrading.CanInitiateTrade(unitTarget)
 			local wndCurr = self:HelperBuildRegularButton(wndButtonList, "BtnTrade", Apollo.GetString("ContextMenu_Trade"))
@@ -380,15 +371,19 @@ function ContextMenuPlayer:RedrawAll()
 			end
 			self:HelperEnableDisableRegularButton(wndCurr, bEnabled, strTooltip)
 			
-			-- Duel
-			local eCurrentZonePvPRules = GameLib.GetCurrentZonePvpRules()
-			if not eCurrentZonePvPRules or eCurrentZonePvPRules ~= GameLib.CodeEnumZonePvpRules.Sanctuary then
-				if GameLib.GetDuelOpponent(unitPlayer) == unitTarget and GameLib.GetDuelState() == GameLib.CodeEnumDuelState.Dueling then
-					self:HelperBuildRegularButton(wndButtonList, "BtnForfeit", Apollo.GetString("ContextMenu_ForfeitDuel"))
-				else
-					self:HelperBuildRegularButton(wndButtonList, "BtnDuel", Apollo.GetString("ContextMenu_Duel"))
-				end
+			if (self.tPlayerFaction == unitTarget:GetFaction() or unitTarget:IsInYourGroup()) then
+				self:HelperBuildRegularButton(wndButtonList, "BtnInspect", Apollo.GetString("ContextMenu_Inspect"))
+				-- Duel
+				local eCurrentZonePvPRules = GameLib.GetCurrentZonePvpRules()
+				if not eCurrentZonePvPRules or eCurrentZonePvPRules ~= GameLib.CodeEnumZonePvpRules.Sanctuary then
+					if GameLib.GetDuelOpponent(unitPlayer) == unitTarget and GameLib.GetDuelState() == GameLib.CodeEnumDuelState.Dueling then
+						self:HelperBuildRegularButton(wndButtonList, "BtnForfeit", Apollo.GetString("ContextMenu_ForfeitDuel"))
+					else
+						self:HelperBuildRegularButton(wndButtonList, "BtnDuel", Apollo.GetString("ContextMenu_Duel"))
+					end
+				end	
 			end
+
 		else
 			-- PvP Flag
 			self:UpdatePvpFlagBtn()
@@ -396,16 +391,12 @@ function ContextMenuPlayer:RedrawAll()
 	end
 
 	if unitTarget == nil or unitTarget ~= unitPlayer then
-		local bCanWhisper = not bBaseCrossFaction 
 		local bCanAccountWisper = false
 		if tCharacterData and tCharacterData.tAccountFriend then
 			bCanAccountWisper = true
-			bCanWhisper = tCharacterData.tAccountFriend.arCharacters[1] ~= nil
-				and tCharacterData.tAccountFriend.arCharacters[1].strRealm == GameLib.GetRealmName()
-				and tCharacterData.tAccountFriend.arCharacters[1].nFactionId == GameLib.GetPlayerUnit():GetFaction()
 		end
 
-		if bCanWhisper and not bCanAccountWisper then
+		if not bCanAccountWisper then
 			self:HelperBuildRegularButton(wndButtonList, "BtnWhisper", Apollo.GetString("ContextMenu_Whisper"))
 		end
 
@@ -413,11 +404,11 @@ function ContextMenuPlayer:RedrawAll()
 			self:HelperBuildRegularButton(wndButtonList, "BtnAccountWhisper", Apollo.GetString("ContextMenu_AccountWhisper"))
 		end
 
-		if (not bInGroup or (tMyGroupData.bCanInvite and (unitTarget and not unitTarget:IsInYourGroup()))) and not bCrossFaction then
+		if ((not bInGroup or (tMyGroupData.bCanInvite and (unitTarget and not unitTarget:IsInYourGroup()))) and (not bBaseCrossFaction or not bIsEitherPvPFlagged)) then
 			self:HelperBuildRegularButton(wndButtonList, "BtnInvite", Apollo.GetString("ContextMenu_InviteToGroup"))
 		end
 		
-		if (not bInGroup or (unitTarget and not unitTarget:IsInYourGroup())) and not bCrossFaction then
+		if ((not bInGroup or (unitTarget and not unitTarget:IsInYourGroup())) and (not bBaseCrossFaction or not bIsEitherPvPFlagged)) then
 			self:HelperBuildRegularButton(wndButtonList, "BtnJoin", Apollo.GetString("CRB_Join_Group"))
 		end		
 	end
@@ -438,7 +429,7 @@ function ContextMenuPlayer:RedrawAll()
 
 		if bIsFriend then
 			self:HelperBuildRegularButton(wndSocialListItems, "BtnUnfriend", Apollo.GetString("ContextMenu_RemoveFriend"))
-		elseif not bBaseCrossFaction then
+		else
 			self:HelperBuildRegularButton(wndSocialListItems, "BtnAddFriend", Apollo.GetString("ContextMenu_AddFriend"))
 		end
 
@@ -450,7 +441,7 @@ function ContextMenuPlayer:RedrawAll()
 
 		if bIsNeighbor then
 			self:HelperBuildRegularButton(wndSocialListItems, "BtnUnneighbor", Apollo.GetString("ContextMenu_RemoveNeighbor"))
-		elseif not bBaseCrossFaction then
+		else
 			self:HelperBuildRegularButton(wndSocialListItems, "BtnAddNeighbor", Apollo.GetString("ContextMenu_AddNeighbor"))
 		end
 
@@ -545,11 +536,11 @@ function ContextMenuPlayer:RedrawAll()
 			end
 		end
 
-		if not tTargetGroupData and tMyGroupData.bCanInvite and not bCrossFaction then
+		if not tTargetGroupData and tMyGroupData.bCanInvite and (not bBaseCrossFaction or not bIsEitherPvPFlagged) then
 			self:HelperBuildRegularButton(wndGroupListItems, "BtnInvite", Apollo.GetString("ContextMenu_Invite"))
 		end
 		
-		if not tTargetGroupData and not bCrossFaction then
+		if not tTargetGroupData and (not bBaseCrossFaction or not bIsEitherPvPFlagged) then
 			self:HelperBuildRegularButton(wndGroupListItems, "BtnJoin", Apollo.GetString("CRB_Join_Group"))
 		end	
 
@@ -991,6 +982,8 @@ function ContextMenuPlayer:UpdatePvpFlagBtn()
 		wndBtnPvPFlag = self:HelperBuildRegularButton(self.wndMain:FindChild("ButtonList"), "BtnPvPFlag", Apollo.GetString("MatchMaker_TurnPvPOn")) 
 	end
 	wndBtnPvPFlag:Enable(not tFlagInfo.bIsForced)
+	wndBtnPvPFlag:Show(not tFlagInfo.bIsInCrossFactionGroup)
+	
 	local strColor = "UI_BtnTextBlueNormal"
 	if tFlagInfo.bIsForced then
 		strColor = "UI_BtnTextBlueDisabled"

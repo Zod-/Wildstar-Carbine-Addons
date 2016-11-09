@@ -117,6 +117,7 @@ function CombatLog:OnDocumentReady()
 	
 	self.tCache =
 	{
+		TargetKilled = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_TargetKilled")),
 		CombatLogDamage = {},
 		CombatLogDamageShields = {},
 		CombatLogReflect = {},
@@ -297,9 +298,7 @@ function CombatLog:OnCombatLogDamage(tEventArgs)
 	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount), tostring(tEventArgs.nOverkill)))
 
 	if tEventArgs.bTargetKilled then
-		local strKill = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_TargetKilled"))
-		self.tCache.TargetKilled = strKill
-		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strKill, tTextInfo.strCaster, tTextInfo.strTarget), "")
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(self.tCache.TargetKilled, tTextInfo.strCaster, tTextInfo.strTarget), "")
 	end
 end
 
@@ -348,7 +347,7 @@ function CombatLog:OnCombatLogDamageShields(tEventArgs)
 		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount)))
 		
 		if tEventArgs.bTargetKilled then
-			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(self.tCache.TargetKilled , tTextInfo.strCaster, tTextInfo.strTarget), "")
+			ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(self.tCache.TargetKilled, tTextInfo.strCaster, tTextInfo.strTarget), "")
 		end
 		
 		return
@@ -395,9 +394,7 @@ function CombatLog:OnCombatLogDamageShields(tEventArgs)
 	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount)))
 
 	if tEventArgs.bTargetKilled then
-		local strKill = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_TargetKilled"))
-		self.tCache.TargetKilled = strKill
-		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strKill, tTextInfo.strCaster, tTextInfo.strTarget), "")
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(self.tCache.TargetKilled, tTextInfo.strCaster, tTextInfo.strTarget), "")
 	end
 end
 
@@ -476,9 +473,7 @@ function CombatLog:OnCombatLogReflect(tEventArgs)
 	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount)))
 
 	if tEventArgs.bTargetKilled then
-		local strKill = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_TargetKilled"))
-		self.tCache.TargetKilled = strKill
-		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strKill, tTextInfo.strCaster, tTextInfo.strTarget), "")
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(self.tCache.TargetKilled, tTextInfo.strCaster, tTextInfo.strTarget), "")
 	end
 end
 
@@ -572,9 +567,7 @@ function CombatLog:OnCombatLogMultiHit(tEventArgs)
 	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount)))
 
 	if tEventArgs.bTargetKilled then
-		local strKill = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_TargetKilled"))
-		self.tCache.TargetKilled = strKill
-		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strKill, tTextInfo.strCaster, tTextInfo.strTarget), "")
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(self.tCache.TargetKilled, tTextInfo.strCaster, tTextInfo.strTarget), "")
 	end
 end
 
@@ -670,9 +663,7 @@ function CombatLog:OnCombatLogMultiHitShields(tEventArgs)
 	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, strDamageType, strDamageColor, tEventArgs.nDamageAmount, tEventArgs.nShield, tEventArgs.nAbsorption, tostring(tEventArgs.nGlanceAmount)))
 
 	if tEventArgs.bTargetKilled then
-		local strKill = string.format('<P Font="CRB_InterfaceMedium" TextColor="%s">%s</P>', kstrStateColor, Apollo.GetString("CombatLog_TargetKilled"))
-		self.tCache.TargetKilled = strKill
-		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strKill, tTextInfo.strCaster, tTextInfo.strTarget), "")
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(self.tCache.TargetKilled, tTextInfo.strCaster, tTextInfo.strTarget), "")
 	end
 end
 
