@@ -1160,7 +1160,7 @@ function CombatLog:OnCombatLogCCState(tEventArgs)
 	
 	local strResult = self.tCache.CombatLogCCState[idx]
 	if strResult then
-		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, tEventArgs.strState, tEventArgs.nInterruptArmorHit, nRemainingIA))
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tTextInfo.strCaster, tTextInfo.strSpellName, tTextInfo.strTarget, tTextInfo.strColor, tEventArgs.strState, tEventArgs.nInterruptArmorHit, nRemainingIA))
 		
 		return
 	end
