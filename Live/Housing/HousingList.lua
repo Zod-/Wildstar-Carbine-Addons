@@ -360,7 +360,14 @@ function HousingList:ShowItems(wndListControl, arDecorList, idPrune)
 			--if self:SelectionMatches(item["type"]) then
 			
 				-- AddRow implicitly works on column one.  Every column can have it's own hidden data associated with it!
-				local idx = wndListControl:AddRow("  " .. decor:GetName(), "", decor)
+				local strName = decor:GetName()
+				if decor:GetDecorColor() ~= 0 then
+					local nColorShift = decor:GetDecorColor()
+					local tColorInfo = HousingLib.GetDecorColorInfo(nColorShift)
+					strName = String_GetWeaselString(Apollo.GetString("HousingDecorList_NameWithColor"), strName, tColorInfo.strName)
+				end
+				
+				local idx = wndListControl:AddRow("  " .. strName, "", decor)
 				local bPruned = false
 
 				-- this pruneId means we've want to disallow this item (let's show it as a disabled row) 

@@ -12,7 +12,7 @@ require "StorefrontLib"
 -----------------------------------------------------------------------------------------------
 -- HousingDecorate Module Definition
 -----------------------------------------------------------------------------------------------
-local HousingDecorate = {} 
+local HousingDecorate = {}
 
 -----------------------------------------------------------------------------------------------
 -- global
@@ -133,7 +133,9 @@ function HousingDecorate:OnLoad()
 	self.wndListView 				= self.wndDecorate:FindChild("StructureList")
 	self.wndListFrame				= self.wndDecorate:FindChild("BGC_ListBacker")
 	self.wndBuyButton 				= self.wndDecorate:FindChild("BuyBtn")
+	self.wndBuyBtnConfirm			= self.wndDecorate:FindChild("BuyBtnConfirm")
 	self.wndBuyToCrateButton		= self.wndDecorate:FindChild("BuyToCrateBtn")
+	self.wndBuyToCrateBtnConfirm	= self.wndDecorate:FindChild("BuyToCrateBtnConfirm")
 	self.wndDeleteButton 			= self.wndDecorate:FindChild("DeleteBtn")
 	self.wndCancelButton 			= self.wndDecorate:FindChild("CancelBtn")
 	self.wndCashDecorate 			= self.wndDecorate:FindChild("CashWindow")
@@ -183,6 +185,7 @@ function HousingDecorate:OnLoad()
     self.wndExtClearSearchBtn:Show(false)
 	self.wndBuyToCrateButton:Enable(false)
 	self.wndBuyToCrateButton:Show(false)
+	self.wndBuyBtnConfirm:Show(false)
 	
 	self.wndCashDecorate:SetMoneySystem(self.eDisplayedCurrencyType, self.eDisplayedGroupCurrencyType)
 	self.wndCashDecorate:SetAmount(GameLib.GetPlayerCurrency(self.eDisplayedCurrencyType, self.eDisplayedGroupCurrencyType), true)
@@ -219,6 +222,38 @@ function HousingDecorate:OnLoad()
 	
 	self.wndFreePlaceFrame:Show(false)
 
+	-- color shift
+	self.wndColorShift = Apollo.LoadForm(self.xmlDoc, "ColorShiftWindow", nil, self)
+	self.wndColorShiftChoices = self.wndColorShift:FindChild("ShiftContainer")
+	self.wndColorShiftActions = self.wndColorShift:FindChild("ActionContainer")
+	self.wndColorShiftActionRemove = self.wndColorShift:FindChild("ActionContainer:RemoveBuyBtn")
+	self.wndColorShiftActionCash = self.wndColorShift:FindChild("ActionContainer:CashBuyBtn")
+	self.wndColorShiftActionCashLabel = self.wndColorShift:FindChild("ActionContainer:CashBuyBtn:Label")
+	self.wndColorShiftActionToken = self.wndColorShift:FindChild("ActionContainer:TokenBuyBtn")
+	self.wndColorShiftActionTokenLabel = self.wndColorShift:FindChild("ActionContainer:TokenBuyBtn:Label")
+	
+	local wndVendorColorShiftOptions = self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container:Right:ColorShiftOptions")
+	
+	local arColorShiftOptions = HousingLib.GetDecorColorOptions()
+	table.insert(arColorShiftOptions, 1, { id = 0, strName = Apollo.GetString("Housing_ColorShiftRemoveEntry"), strPreviewSwatch = "" })
+	for idx, tColorShift in pairs(arColorShiftOptions) do
+		local wndEntry = Apollo.LoadForm(self.xmlDoc, "ColorShiftDecorateEntry", wndVendorColorShiftOptions, self)
+		local wndSwatch = wndEntry:FindChild("Swatch")
+		wndSwatch:SetData(tColorShift)
+		wndSwatch:SetSprite(tColorShift.strPreviewSwatch)
+		local wndButton = wndEntry:FindChild("Button")
+		wndButton:SetData(tColorShift)
+		wndButton:SetTooltip(tColorShift.strName)
+	end
+	local nHeight = wndVendorColorShiftOptions:ArrangeChildrenTiles()
+	local nLeft, nTop, nRight, nBottom = wndVendorColorShiftOptions:GetAnchorOffsets()
+	wndVendorColorShiftOptions:SetAnchorOffsets(nLeft, nTop, nRight, nTop + nHeight)
+	
+	self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container:Right"):ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop)
+	self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container:Right:ColorShiftPrices:CashBtn"):SetCheck(true)
+	
+	self.wndColorShiftConfirm		= Apollo.LoadForm(self.xmlDoc, "ColorShiftConfirmWindow", nil, self)
+	
 	-- decor icon/context menu
 	self.wndDecorIconFrame 			= Apollo.LoadForm(self.xmlDoc, "DecorIcon", nil, self)
 	self.wndToggleFrame 			= self.wndDecorIconFrame:FindChild("IconToggleFrame")
@@ -229,6 +264,7 @@ function HousingDecorate:OnLoad()
 	self.wndDecorBuffIcon           = self.wndToggleFrame:FindChild("BuffIcon")
 	self.wndDecorChairIcon          = self.wndToggleFrame:FindChild("ChairIcon")
 	self.wndDecorDisableIcon        = self.wndToggleFrame:FindChild("DisableIcon")
+	self.wndDecorColorShiftIcon     = self.wndDecorIconFrame:FindChild("ColorShiftIcon")
 	self.wndToggleFrame:Show(false)
 	
 	local nWidth = self.wndDecorate:GetWidth()
@@ -253,7 +289,7 @@ function HousingDecorate:OnWindowManagementReady()
 	local strCrateName = String_GetWeaselString(Apollo.GetString("Tooltips_ItemSpellEffect"), Apollo.GetString("CRB_Housing"), Apollo.GetString("CRB_Crate"))
 
 	
-	Event_FireGenericEvent("WindowManagementRegister", {strName = strCrateName, nSaveVersion = 2})
+	Event_FireGenericEvent("WindowManagementRegister", {strName = strCrateName, nSaveVersion = 3})
 	Event_FireGenericEvent("WindowManagementAdd", {wnd = self.wndDecorate, strName = strCrateName})
 	
 	local strPlaceName = String_GetWeaselString(Apollo.GetString("Tooltips_ItemSpellEffect"), Apollo.GetString("CRB_Housing"), Apollo.GetString("Housing_AdvancedMode"))
@@ -333,7 +369,9 @@ function HousingDecorate:OnHousingButtonOpenCrate(bIsVendor)
 	    self.wndDecorate:FindChild("IntSortByWindow"):Show(false)
 	    self.wndDecorate:FindChild("ExtSortByWindow"):Show(false)
         self.wndDecorate:FindChild("IntSortByBtn"):SetCheck(false)
-        self.wndDecorate:FindChild("ExtSortByBtn"):SetCheck(false)	
+        self.wndDecorate:FindChild("ExtSortByBtn"):SetCheck(false)
+		self.wndDecorate:FindChild("CrateAssets:BGC_MessageBackerBase:Container"):Show(false)
+		self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container"):Show(false)
 		self.wndBuyToCrateButton:Show(self.bIsVendor)
 
 		self:ShowItems(self.wndListView, self.tDecorList, 0)
@@ -457,6 +495,7 @@ function HousingDecorate:OnInvalidHookSelect()
 	self.wndBuyButton:Show(false)
 	self.wndDeleteButton:Enable(false)
 	self.wndCancelButton:Enable(false)
+	self.wndBuyBtnConfirm:Show(false)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -471,11 +510,9 @@ function HousingDecorate:OnDecoratePreview(wndControl, wndHandler) -- attaching 
         local idHi = 0
         if self.bIsVendor then
             idInfo = tItemData.nId
-			self.wndMessageDisplay:SetText(kstrPlaceFromVendor)
         else
             idLow = tItemData.tDecorItems[1].nDecorId
             idHi = tItemData.tDecorItems[1].nDecorIdHi
-			self.wndMessageDisplay:SetText(kstrPlaceFromCrate)
         end
 
         -- remove any existing preview decor
@@ -527,11 +564,35 @@ function HousingDecorate:CancelPreviewDecor(bRemoveFromWorld)
 	self:OnInvalidHookSelect()
 	self:ShowItems(self.wndListView, self.tDecorList, 0)
 	self.wndFreePlaceFrame:Show(false)
+	self.wndColorShift:Close()
+end
+
+---------------------------------------------------------------------------------------------------
+
+function HousingDecorate:PreviewInWorldCancel(wndControl, wndHandler)
+	self:OnCancelFreePlace()
+	
+	self.wndPreviewContainer:FindChild("Right:PreviewControls:PreviewInWorld"):Show(self.decorPreview == nil)
+	self.wndPreviewContainer:FindChild("Right:PreviewControls:PreviewInWorldCancel"):Show(self.decorPreview ~= nil)
+	
+	if self.bIsVendor then
+		local idColorShift = 0
+		for idx, wndEntry in pairs(self.wndPreviewContainer:FindChild("Right:ColorShiftOptions"):GetChildren()) do
+			if wndEntry:FindChild("Button"):IsChecked() then
+				local wndSwatch = wndEntry:FindChild("Swatch")
+				idColorShift = wndSwatch:GetData().id
+			end
+		end
+		
+		self.wndBuyBtnConfirm:Show(idColorShift ~= 0 and self.decorPreview ~= nil)
+		self.wndBuyToCrateBtnConfirm:Show(idColorShift ~= 0 and self.decorPreview == nil)
+		self.wndBuyToCrateButton:Show(idColorShift == 0 and self.decorPreview == nil)
+		self.wndBuyButton:Show(idColorShift == 0 and self.decorPreview ~= nil)
+	end
 end
 
 ---------------------------------------------------------------------------------------------------
 function HousingDecorate:OnBuyBtn(wndControl, wndHandler)
-
    	self.wndIntSearchWindow:ClearFocus()
 	self.wndExtSearchWindow:ClearFocus()
 	if self.decorPreview ~= nil then
@@ -551,26 +612,28 @@ function HousingDecorate:OnBuyBtn(wndControl, wndHandler)
         local nRow = self.wndListView:GetCurrentRow()
         local tItemData = self.wndListView:GetCellData( nRow, 1 )
         if tItemData.nCount == 1 then -- last of this tItemData
-            self.wndMessageDisplay:SetText(kstrSelectNew)
 			self.wndListView:SetCurrentRow(0)
 			self.wndBuyToCrateButton:Enable(false)
             self.idSelectedItem = nil
             self.eSelectedItemType = nil
-			self:HelperTogglePreview(false)
-			self.wndTogglePreview:Enable(false)	
-        else
-			self.wndMessageDisplay:SetText(kstrPlaceAgain)
+			self:HelperTogglePreview(false)	
 		end
 	else -- vendor
-		self.wndMessageDisplay:SetText(kstrPlaceAgain)
 		self:HelperTogglePreview(not self.bHidePreview)
-		self.wndTogglePreview:Enable(true)		
+		
+		for idx, wndEntry in pairs(self.wndPreviewContainer:FindChild("Right:ColorShiftOptions"):GetChildren()) do
+			local wndSwatch = wndEntry:FindChild("Swatch")			
+			local tColorShift = wndSwatch:GetData()
+			wndEntry:FindChild("Button"):SetCheck(tColorShift.id == 0)
+		end
 	end
+	
+	self.wndPreviewContainer:FindChild("Right:PreviewControls:PreviewInWorld"):Show(self.decorPreview == nil)
+	self.wndPreviewContainer:FindChild("Right:PreviewControls:PreviewInWorldCancel"):Show(self.decorPreview ~= nil)
 end
 
 ---------------------------------------------------------------------------------------------------
 function HousingDecorate:OnBuyToCrateBtn(wndControl, wndHandler)
-
     if self.bIsVendor then
 		local nRow = self.wndListView:GetCurrentRow()
 		if nRow ~= nil then
@@ -579,7 +642,16 @@ function HousingDecorate:OnBuyToCrateBtn(wndControl, wndHandler)
 			HousingLib.PurchaseDecorIntoCrate(idInfo)
 			Sound.Play(Sound.PlayUI16BuyVirtual)
 		end
+		
+		for idx, wndEntry in pairs(self.wndPreviewContainer:FindChild("Right:ColorShiftOptions"):GetChildren()) do
+			local wndSwatch = wndEntry:FindChild("Swatch")			
+			local tColorShift = wndSwatch:GetData()
+			wndEntry:FindChild("Button"):SetCheck(tColorShift.id == 0)
+		end
 	end
+	
+	self.wndPreviewContainer:FindChild("Right:PreviewControls:PreviewInWorld"):Show(self.decorPreview == nil)
+	self.wndPreviewContainer:FindChild("Right:PreviewControls:PreviewInWorldCancel"):Show(self.decorPreview ~= nil)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -610,13 +682,13 @@ function HousingDecorate:ClearCrateSelection()
 
 	self.wndMessageDisplay:SetText(kstrSelectNew)
 	self:HelperTogglePreview(false)
-	self.wndTogglePreview:Enable(false)
 	self:CancelPreviewDecor(true)
 	self.idSelectedItem = nil
     self.eSelectedItemType = nil
 	self.wndListView:SetCurrentRow(0)
 	self.wndBuyToCrateButton:Enable(false)
 	self:OnCancelFreePlace()
+	self.wndPreviewContainer:Show(false)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -753,8 +825,9 @@ function HousingDecorate:ShowDecorateWindow(bClear)
         self.wndVendorList:Show(true)
         self.wndDecorate:FindChild("StructureList"):Show(false) 
         self.wndListView = self.wndDecorate:FindChild("VendorList")
-		self.wndTogglePreview = self.wndDecorate:FindChild("PreviewVendorToggle")
-		self.wndPreview = self.wndDecorate:FindChild("PreviewVendorFrame")
+		self.wndPreview = self.wndDecorate:FindChild("BGV_MessageBackerBase")
+		self.wndPreviewContainer = self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container")
+		
 		self.wndDecorate:FindChild("VendorAssets"):Show(true)
 		self.wndDecorate:FindChild("CrateAssets"):Show(false)
         self.tDecorList = HousingLib.GetDecorCatalogList(strSearchText)
@@ -764,8 +837,9 @@ function HousingDecorate:ShowDecorateWindow(bClear)
 		self.wndVendorList:Show(false)
         self.wndDecorate:FindChild("StructureList"):Show(true)
         self.wndListView = self.wndDecorate:FindChild("StructureList")
-		self.wndTogglePreview = self.wndDecorate:FindChild("PreviewCrateToggle")
-		self.wndPreview = self.wndDecorate:FindChild("PreviewCrateFrame")
+		self.wndPreview = self.wndDecorate:FindChild("BGC_MessageBackerBase")
+		self.wndPreviewContainer = self.wndDecorate:FindChild("CrateAssets:BGC_MessageBackerBase:Container")
+		
 		self.wndDecorate:FindChild("VendorAssets"):Show(false)
 		self.wndDecorate:FindChild("CrateAssets"):Show(true)
         self.tDecorList = HousingLib.GetResidence():GetDecorCrateList(strSearchText)
@@ -781,7 +855,6 @@ function HousingDecorate:ShowDecorateWindow(bClear)
 		self.idSelectedItem = nil
 		self.eSelectedItemType = nil	
 		self:HelperTogglePreview(false)
-		self.wndTogglePreview:Enable(false)
 		
 		-- remove any existing preview decor
 	    self:CancelPreviewDecor(true)
@@ -798,13 +871,18 @@ function HousingDecorate:ShowDecorateWindow(bClear)
 			self.wndListView:SetCurrentRow(nCurrentSelection)
 			self.wndBuyToCrateButton:Enable(true)
 			self.wndListView:EnsureCellVisible(nCurrentSelection, 1)
-			self.wndTogglePreview:Enable(true)
 			
 			local tItemData = self.wndListView:GetCellData( nCurrentSelection, 1 )
 			
 			if tItemData then
 				local idItem = tItemData.nId
 				self.wndPreview:FindChild("ModelWindow"):SetDecorInfo(idItem)
+				
+				local idColorShift = 0
+				if tItemData.tDecorItems ~= nil and #tItemData.tDecorItems > 0 then
+					idColorShift = tItemData.tDecorItems[1].idColorShift
+				end
+				self.wndPreview:FindChild("ModelWindow"):SetDecorColor(idColorShift)
 			else
 				self:ClearCrateSelection()
 			end
@@ -874,8 +952,7 @@ end
 
 ---------------------------------------------------------------------------------------------------
 function HousingDecorate:HelperTogglePreview(bShowWnd)
-	self.wndTogglePreview:Show(not bShowWnd)
-	self.wndPreview:Show(bShowWnd)
+	self.wndPreviewContainer:Show(bShowWnd)
 end
 
 
@@ -954,9 +1031,7 @@ end
 
 
 ---------------------------------------------------------------------------------------------------
-function HousingDecorate:OnFreePlaceDecor_FromVendor() -- free placing from vendor
-	self.wndMessageDisplay:SetText(kstrPlaceFromVendor)
-	
+function HousingDecorate:OnFreePlaceDecor_FromVendor() -- free placing from vendor	
 	local nRow = self.wndListView:GetCurrentRow()
 	if nRow ~= nil then
 		local tItemData = self.wndListView:GetCellData( nRow, 1 )
@@ -972,13 +1047,33 @@ function HousingDecorate:OnFreePlaceDecor_FromVendor() -- free placing from vend
 			self.wndCancelButton:Enable(true)
 			self.wndDeleteButton:Enable(false)
 			self:ShowItems(self.wndListView, self.tDecorList, 0)
+			
+			local idColorShift = 0
+			for idx, wndEntry in pairs(self.wndPreviewContainer:FindChild("Right:ColorShiftOptions"):GetChildren()) do
+				if wndEntry:FindChild("Button"):IsChecked() then
+					local wndSwatch = wndEntry:FindChild("Swatch")
+					idColorShift = wndSwatch:GetData().id
+				end
+			end
+			
+			decorPreview:SetColor(idColorShift)
+			
+			self.wndBuyBtnConfirm:Show(idColorShift ~= 0 and self.decorPreview ~= nil)
+			self.wndBuyToCrateBtnConfirm:Show(idColorShift ~= 0 and self.decorPreview == nil)
+			self.wndBuyToCrateButton:Show(idColorShift == 0 and self.decorPreview == nil)
+			self.wndBuyButton:Show(idColorShift == 0 and self.decorPreview ~= nil)
+			
+			local bUseTokens = self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container:Right:ColorShiftPrices:TokenBtn"):IsChecked()
+			self.wndBuyBtnConfirm:SetActionData(GameLib.CodeEnumConfirmButtonType.PurchaseDecorColorShift, false, self.decorPreview, bUseTokens)
 		end
 	end
+	
+	self.wndPreviewContainer:FindChild("Right:PreviewControls:PreviewInWorld"):Show(self.decorPreview == nil)
+	self.wndPreviewContainer:FindChild("Right:PreviewControls:PreviewInWorldCancel"):Show(self.decorPreview ~= nil)
 end
 
 ---------------------------------------------------------------------------------------------------
 function HousingDecorate:OnFreePlaceDecor_FromCrate()
-	self.wndMessageDisplay:SetText(kstrPlaceFromCrate)
 	local nRow = self.wndListView:GetCurrentRow()
 	if nRow ~= nil then
 		local tItemData = self.wndListView:GetCellData( nRow, 1 )
@@ -996,8 +1091,13 @@ function HousingDecorate:OnFreePlaceDecor_FromCrate()
 			self.wndCancelButton:Enable(true)
 			self.wndDeleteButton:Enable(false)
 			self:ShowItems(self.wndListView, self.tDecorList, 0)
+			
+			self.wndDecorColorShiftIcon:Show(not self.bIsWarplot and not self.decorPreview:IsPreview())
 		end
 	end
+	
+	self.wndPreviewContainer:FindChild("Right:PreviewControls:PreviewInWorld"):Show(self.decorPreview == nil)
+	self.wndPreviewContainer:FindChild("Right:PreviewControls:PreviewInWorldCancel"):Show(self.decorPreview ~= nil)
 end
 
 function HousingDecorate:OnCloseFreePlaceControl()
@@ -1085,6 +1185,53 @@ function HousingDecorate:OnToggleAdvanced(wndHandler, wndControl)
 end
 
 ---------------------------------------------------------------------------------------------------
+function HousingDecorate:OnToggleColorShift(wndHandler, wndControl)
+	if wndControl:IsChecked() then
+		self.wndColorShift:Invoke()
+	
+		local idCurrentDecor = self.decorPreview:GetDecorInfoId()
+		local idCurrentColorShift = self.decorPreview:GetDecorColor()
+	
+		self.wndColorShiftChoices:DestroyChildren()
+		
+		local arColorShifts = HousingLib.GetDecorColorOptions()
+		table.insert(arColorShifts, 1, { id = 0, strName = Apollo.GetString("Housing_ColorShiftRemoveEntry"), strPreviewSwatch = "" }) -- Add none option
+		
+		local wndSelected
+		
+		for idx, tColorShift in pairs(arColorShifts) do
+			local wndEntry = Apollo.LoadForm(self.xmlDoc, "ColorShiftOptionEntry", self.wndColorShiftChoices, self)
+			local wndDecorFrame = wndEntry:FindChild("DecorFrame")
+			wndDecorFrame:SetDecorInfo(idCurrentDecor)
+			wndDecorFrame:SetDecorColor(tColorShift.id)
+			wndEntry:FindChild("Current"):Show(idCurrentColorShift == tColorShift.id)
+			wndEntry:FindChild("Swatch"):SetSprite(tColorShift.strPreviewSwatch)
+			local wndButton = wndEntry:FindChild("Button")
+			wndButton:SetData(tColorShift)
+			wndButton:SetCheck(idCurrentColorShift == tColorShift.id)
+			wndButton:SetTooltip(tColorShift.strName)
+			
+			if idCurrentColorShift == tColorShift.id then
+				wndSelected = wndEntry
+			end
+		end
+		
+		self.wndColorShiftChoices:ArrangeChildrenTiles()
+		if wndSelected ~= nil and wndSelected:IsValid() then
+			self.wndColorShiftChoices:EnsureChildVisible(wndSelected)
+		end
+		
+		self.wndColorShiftActionCash:Show(false)
+		self.wndColorShiftActionToken:Show(false)
+		self.wndColorShiftActionRemove:Show(true)
+		
+		self.wndColorShiftActions:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.Middle)
+	else
+		self.wndColorShift:Close()
+	end
+end
+
+---------------------------------------------------------------------------------------------------
 function HousingDecorate:OnFreePlaceConfirmBtn(wndHandler, wndControl)
 	if self.decorPreview ~= nil then
 		Sound.Play(Sound.PlayUIHousingHardwareFinalized)
@@ -1094,6 +1241,7 @@ function HousingDecorate:OnFreePlaceConfirmBtn(wndHandler, wndControl)
 		self.wndFreePlaceFrame:FindChild("CancelFreePlaceBtn"):Enable(false)
 		self.decorPreview = nil
 		self.wndFreePlaceFrame:Show(false)
+		self.wndColorShift:Show(false)
 	end
 	self:ResetPopups()
 end
@@ -1451,8 +1599,9 @@ function HousingDecorate:OnDecorateListItemChange(wndControl, wndHandler, nX, nY
 	local nRow = wndControl:GetCurrentRow()
 	local bCanAfford = false
 	local idItem = 0
+	local tItemData = nil
 	if nRow ~= nil then
-		local tItemData = self.wndListView:GetCellData( nRow, 1 )
+		tItemData = self.wndListView:GetCellData( nRow, 1 )
 		idItem = tItemData.nId
 		if tItemData.eCurrencyType then
 			self.eDisplayedCurrencyType = tItemData.eCurrencyType
@@ -1462,21 +1611,61 @@ function HousingDecorate:OnDecorateListItemChange(wndControl, wndHandler, nX, nY
 		end
 		bCanAfford = GameLib.GetPlayerCurrency(self.eDisplayedCurrencyType, self.eDisplayedGroupCurrencyType):GetAmount() >= tItemData.nCost
 	end
+	
+	local idColorShiftToCheck = 0
+	if not self.bIsVendor then
+		idColorShiftToCheck = tItemData.tDecorItems[1].idColorShift
+	end
 
 	self.wndBuyToCrateButton:Enable(idItem ~= 0 and bCanAfford)
-
-	self.wndTogglePreview:Enable(true)
+	self.wndBuyToCrateButton:Show(self.bIsVendor and idColorShiftToCheck == 0)
+	self.wndBuyToCrateBtnConfirm:Enable(idItem ~= 0 and bCanAfford)
+	self.wndBuyToCrateBtnConfirm:Show(self.bIsVendor and idColorShiftToCheck ~= 0)
 	
 	self.wndDeleteButton:Enable(HousingLib.IsOnMyResidence())
-		
+	
 	if idItem ~= 0 then
 		self.wndPreview:FindChild("ModelWindow"):SetAnimated(true)
 		self.wndPreview:FindChild("ModelWindow"):SetDecorInfo(idItem)
+		self.wndPreview:FindChild("ModelWindow"):SetDecorColor(idColorShiftToCheck)
 		
 		self.wndCashDecorate:SetMoneySystem(self.eDisplayedCurrencyType, self.eDisplayedGroupCurrencyType)
 		self.wndCashDecorate:SetAmount(GameLib.GetPlayerCurrency(self.eDisplayedCurrencyType, self.eDisplayedGroupCurrencyType), true)
+		
+		local strName = tItemData.strName
+		if idColorShiftToCheck ~= 0 then
+			local tColorShift = HousingLib.GetDecorColorInfo(idColorShiftToCheck)
+			strName = String_GetWeaselString(Apollo.GetString("HousingDecorList_NameWithColor"), strName, tColorShift.strName)
+		end
+		
+		self.wndPreviewContainer:FindChild("Right:Name"):SetAML(string.format('<P TextColor=\"UI_TextHoloTitle\" Font=\"CRB_Header11\" Align="Center">%s</P>', strName))
+		self.wndPreviewContainer:FindChild("Right:Name"):SetHeightToContentHeight()
+		if self.bIsVendor then
+			self.wndPreviewContainer:FindChild("Right:Price"):SetMoneySystem(tItemData.eCurrencyType, tItemData.eGroupCurrencyType)
+			self.wndPreviewContainer:FindChild("Right:Price"):SetAmount(tItemData.nCost, true)
+			
+			for idx, wndEntry in pairs(self.wndPreviewContainer:FindChild("Right:ColorShiftOptions"):GetChildren()) do
+				local wndSwatch = wndEntry:FindChild("Swatch")
+				local tColorShift = wndSwatch:GetData()
+				
+				wndEntry:FindChild("Button"):SetCheck(tColorShift.id == idColorShiftToCheck)
+			end
+			
+			self.wndPreviewContainer:FindChild("ColorShiftPrices"):Show(false)
+			self.wndPreviewContainer:FindChild("Right:ColorShiftPrices:CashBtn"):SetData({ tItemData = tItemData, bTokens = false })
+			self.wndPreviewContainer:FindChild("Right:ColorShiftPrices:TokenBtn"):SetData({ tItemData = tItemData, bTokens = true })
+		end
+		
+		self.wndPreviewContainer:FindChild("Right:PreviewControls:PreviewInWorld"):Show(self.decorPreview == nil)
+		self.wndPreviewContainer:FindChild("Right:PreviewControls:PreviewInWorldCancel"):Show(self.decorPreview ~= nil)
+		
+		self.wndPreviewContainer:FindChild("Right"):ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop)
+		self.wndPreviewContainer:FindChild("Right"):SetVScrollPos(0)
+		
+		self.wndPreviewContainer:Show(true)
 	end
 	
+	self.idItem = idItem
 	if self.decorPreview ~= nil then
 	    self.decorPreview:CancelTransform()
 		self.decorPreview = nil
@@ -1484,15 +1673,11 @@ function HousingDecorate:OnDecorateListItemChange(wndControl, wndHandler, nX, nY
             self:OnFreePlaceDecor_FromVendor()
         else
             self:OnFreePlaceDecor_FromCrate()
-        end   
+        end
 	else
 	    local tItemData = self.wndListView:GetCellData( nRow, 1 )
 	    local tItemType = tItemData.eHookType
-	    if tItemType == HousingLib.CodeEnumDecorHookType.DefaultHook then
-	        self.wndMessageDisplay:SetText(kstrPreviewOnHook)
-	    else
-	        self.wndMessageDisplay:SetText(kstrPreviewInWorld)
-	    end
+		self.wndMessageDisplay:SetText("")
 		self:HelperTogglePreview(not self.bHidePreview)
 	end
 end
@@ -1507,6 +1692,11 @@ function HousingDecorate:ShowItems(wndControl, tItemList, idPrune)
         if nCurrentSelection ~= nil then
             local tItemData = self.wndListView:GetCellData( nCurrentSelection, 1 )
             self.idSelectedItem = tItemData.nId
+			if tItemData.tDecorItems ~= nil and #tItemData.tDecorItems > 0 then
+				self.idSelectedColorShift = tItemData.tDecorItems[1].idColorShift
+			else
+				self.idSelectedColorShift = 0
+			end
             local tSelectedItem = self:GetItem(self.idSelectedItem, tItemList)
             if tSelectedItem ~= nil then
                 self.eSelectedItemType = tSelectedItem.eHookType
@@ -1530,33 +1720,33 @@ function HousingDecorate:ShowItems(wndControl, tItemList, idPrune)
             self.wndDeleteButton:Enable(false)
             return
         end
-		-- populate the buttons with the tItemData data
-		for idx = 1, #tItemList do
-	
-			local tItemData = tItemList[idx]
-			
-			local bPruneByInteriorExterior = false
-            if self.bFilterCanUseOnly and self.bIsVendor then
-                local eCurrencyType = tItemData.eCurrencyType
-                local eGroupCurrencyType = tItemData.eGroupCurrencyType
-                local monCash = GameLib.GetPlayerCurrency(eCurrencyType, eGroupCurrencyType):GetAmount()
-                if tItemData.nCost > monCash then
-                    bPruneByInteriorExterior = true
-                end
-            end
-			    
-			if (self.nSortType == 0 or tItemData.eDecorType == self.nSortType) and not bPruneByInteriorExterior then
-				-- AddRow implicitly works on column one.  Every column can have it's own hidden data associated with it!
-				local i = wndControl:AddRow("" .. tItemData.strName, "", tItemData)
-				local bPruned = false
 
-				-- this idPrune means we've want to disallow this tItemData (let's show it as a disabled row) 
-				if idPrune == tItemData.nId then
-					bPruned = true
-					wndControl:EnableRow(i, false)
-				end
-			
-			    if self.bIsVendor then
+		if self.bIsVendor then
+			for idx = 1, #tItemList do
+		
+				local tItemData = tItemList[idx]
+				
+				local bPruneByInteriorExterior = false
+	            if self.bFilterCanUseOnly then
+	                local eCurrencyType = tItemData.eCurrencyType
+	                local eGroupCurrencyType = tItemData.eGroupCurrencyType
+	                local monCash = GameLib.GetPlayerCurrency(eCurrencyType, eGroupCurrencyType):GetAmount()
+	                if tItemData.nCost > monCash then
+	                    bPruneByInteriorExterior = true
+	                end
+	            end
+				    
+				if (self.nSortType == 0 or tItemData.eDecorType == self.nSortType) and not bPruneByInteriorExterior then
+					-- AddRow implicitly works on column one.  Every column can have it's own hidden data associated with it!
+					local i = wndControl:AddRow("" .. tItemData.strName, "", tItemData)
+					local bPruned = false
+	
+					-- this idPrune means we've want to disallow this tItemData (let's show it as a disabled row) 
+					if idPrune == tItemData.nId then
+						bPruned = true
+						wndControl:EnableRow(i, false)
+					end
+				
                     local strDoc = Apollo.GetString("CRB_Free_pull")
                     
                     local eCurrencyType = tItemData.eCurrencyType
@@ -1581,18 +1771,76 @@ function HousingDecorate:ShowItems(wndControl, tItemList, idPrune)
                         wndControl:SetCellImage(i, 3, tItemData.splBuff:GetIcon())
 						wndControl:SetCellSortText(i, 3, tItemData.splBuff:GetName())
                     end
-                    
-				else
-				    wndControl:SetCellData(i, 2, tItemData.nCount, "", tItemData.nCount)
-				    
-				    if tItemData.splBuff ~= nil and tItemData.splBuff ~= {} then
-                        wndControl:SetCellImage(i, 3, tItemData.splBuff:GetIcon())
-						wndControl:SetCellSortText(i, 3, tItemData.splBuff:GetName())
-                    end
 				end
-	
+				
 			end
+		
+		else
+		
+			for idx = 1, #tItemList do
+		
+				local tItemData = tItemList[idx]
+				local tColorShifts = {}
+				
+				for _, tDecorEntry in pairs(tItemData.tDecorItems) do
+					local tColoredEntry = tColorShifts[tDecorEntry.idColorShift]
+					if tColoredEntry == nil then
+						tColoredEntry =
+						{
+							nCount = 0,
+							tDecorItems = {},
+						}
+					end
+					tColoredEntry.nCount = tColoredEntry.nCount + 1
+					table.insert(tColoredEntry.tDecorItems, tDecorEntry)
+					tColorShifts[tDecorEntry.idColorShift] = tColoredEntry
+				end
+				
+				for idColorShift, tColoredEntry in pairs(tColorShifts) do
+				
+					local tNewItemData = {}
+					for k,v in pairs(tItemData) do
+						if k ~= "tDecorItems" then
+							tNewItemData[k] = v
+						end
+					end
+					tNewItemData.tDecorItems = tColoredEntry.tDecorItems
+					tNewItemData.nCount = tColoredEntry.nCount
+					tItemData = tNewItemData
+						    
+					if self.nSortType == 0 or tItemData.eDecorType == self.nSortType then
+						-- AddRow implicitly works on column one.  Every column can have it's own hidden data associated with it!
+						
+						local strName = tItemData.strName
+						if idColorShift ~= 0 then
+							local tColorShift = HousingLib.GetDecorColorInfo(idColorShift)
+							strName = String_GetWeaselString(Apollo.GetString("HousingDecorList_NameWithColor"), strName, tColorShift.strName)
+						end
+						
+						local i = wndControl:AddRow("" .. strName, "", tItemData)
+						local bPruned = false
+		
+						-- this idPrune means we've want to disallow this tItemData (let's show it as a disabled row) 
+						if idPrune == tItemData.nId then
+							bPruned = true
+							wndControl:EnableRow(i, false)
+						end
+
+					    wndControl:SetCellData(i, 2, tItemData.nCount, "", tItemData.nCount)
+					    
+					    if tItemData.splBuff ~= nil and tItemData.splBuff ~= {} then
+	                        wndControl:SetCellImage(i, 3, tItemData.splBuff:GetIcon())
+							wndControl:SetCellSortText(i, 3, tItemData.splBuff:GetName())
+	                    end
+					end
+					
+				end
+				
+			end
+
 		end
+
+		-- populate the buttons with the tItemData data
 		self:ReselectPreviousItemById(wndControl)
 	end
 end
@@ -1602,7 +1850,9 @@ function HousingDecorate:ReselectPreviousItemById(wndControl)
 	local nCount = wndControl:GetRowCount()
 	for idx = 1, nCount do
 		local tItemData = self.wndListView:GetCellData( idx, 1 )
-		if tItemData.nId == self.idSelectedItem then
+		if tItemData.nId == self.idSelectedItem
+			and (tItemData.tDecorItems == nil or #tItemData.tDecorItems == 0 or tItemData.tDecorItems[1].idColorShift == self.idSelectedColorShift) then
+		
 			wndControl:SetCurrentRow(idx)
 			self.wndBuyToCrateButton:Enable(true)
 			wndControl:EnsureCellVisible(idx, 1)
@@ -1627,6 +1877,71 @@ function HousingDecorate:GetItem(idItem, tItemList)
     end
   end
   return nil
+end
+
+---------------------------------------------------------------------------------------------------
+function HousingDecorate:OnColorShiftDecorateCheck(wndHandler, wndControl)
+	local tColorShift = wndControl:GetData()
+
+	if self.decorPreview ~= nil then
+		self.decorPreview:SetColor(tColorShift.id)
+	end
+	
+	self.wndPreview:FindChild("ModelWindow"):SetDecorColor(tColorShift.id)
+	
+	self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container:Right:ColorShiftPrices"):Show(tColorShift.id ~= 0)
+	if tColorShift.id ~= 0 then
+		local tCashPrice = HousingLib.GetDecorColorPrice(tColorShift.id, false)
+		self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container:Right:ColorShiftPrices:CashBtn:Price"):SetAmount({tCashPrice.monPrice1, tCashPrice.monPrice2}, true)
+		
+		local tTokenPrice = HousingLib.GetDecorColorPrice(tColorShift.id, true)
+		self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container:Right:ColorShiftPrices:TokenBtn:Price"):SetAmount({tTokenPrice.monPrice1, tTokenPrice.monPrice2}, true)
+		
+		local bUseTokens = self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container:Right:ColorShiftPrices:TokenBtn"):IsChecked()
+		
+		self.wndBuyToCrateBtnConfirm:Show(self.decorPreview == nil)
+		self.wndBuyBtnConfirm:Show(self.decorPreview ~= nil)
+		self.wndBuyToCrateButton:Show(false)
+		self.wndBuyButton:Show(false)
+		self.wndBuyToCrateBtnConfirm:SetActionData(GameLib.CodeEnumConfirmButtonType.PurchaseDecorColorShift, true, self.idItem, tColorShift.id, bUseTokens)
+		
+		if self.decorPreview ~= nil then
+			self.wndBuyBtnConfirm:SetActionData(GameLib.CodeEnumConfirmButtonType.PurchaseDecorColorShift, false, self.decorPreview, bUseTokens)
+		end
+	else
+		self.wndBuyBtnConfirm:Show(false)
+		self.wndBuyToCrateBtnConfirm:Show(false)
+		self.wndBuyToCrateButton:Show(self.decorPreview == nil)
+		self.wndBuyButton:Show(self.decorPreview ~= nil)
+	end
+	
+	self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container:Right"):ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop)
+	
+	if tColorShift.id == 0 then
+		self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container:Right"):SetVScrollPos(0)
+	end
+end
+
+function HousingDecorate:OnVendorColorShiftPaymentCheck(wndHandler, wndControl)
+	local idColorShift = 0
+	for idx, wndEntry in pairs(self.wndPreviewContainer:FindChild("Right:ColorShiftOptions"):GetChildren()) do
+		if wndEntry:FindChild("Button"):IsChecked() then
+			local wndSwatch = wndEntry:FindChild("Swatch")
+			idColorShift = wndSwatch:GetData().id
+			break
+		end
+	end
+
+	local bUseTokens = self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container:Right:ColorShiftPrices:TokenBtn"):IsChecked()
+
+	self.wndBuyToCrateBtnConfirm:Show(self.decorPreview == nil)
+	self.wndBuyBtnConfirm:Show(self.decorPreview ~= nil)
+	
+	self.wndBuyToCrateBtnConfirm:SetActionData(GameLib.CodeEnumConfirmButtonType.PurchaseDecorColorShift, true, self.idItem, idColorShift, bUseTokens)
+	
+	if self.decorPreview ~= nil then
+		self.wndBuyBtnConfirm:SetActionData(GameLib.CodeEnumConfirmButtonType.PurchaseDecorColorShift, false, self.decorPreview, bUseTokens)
+	end
 end
 
 -----------------------------------------------------------------------------------------------
@@ -1686,7 +2001,6 @@ function HousingDecorate:HelperSortByItemSelected(tItemData)
 	
     self.wndMessageDisplay:SetText(kstrSelectNew)
 	self:HelperTogglePreview(false)
-	self.wndTogglePreview:Enable(false)
 	self.wndListView:SetCurrentRow(0)
 	self.wndBuyToCrateButton:Enable(false)
     self.idSelectedItem = nil
@@ -1822,25 +2136,6 @@ function HousingDecorate:OnCategoryListItemSelected(wndHandler, wndControl)
 	Print( "item " ..  self.wndSelectedListItem:GetData() .. " is selected.")--]]
 end
 
----------------------------------------------------------------------------------------------------
-function HousingDecorate:OnRotateRightBegin()
-	self.wndPreview:FindChild("ModelWindow"):ToggleLeftSpin(true)
-end
-
----------------------------------------------------------------------------------------------------
-function HousingDecorate:OnRotateRightEnd()
-	self.wndPreview:FindChild("ModelWindow"):ToggleLeftSpin(false)
-end
-
----------------------------------------------------------------------------------------------------
-function HousingDecorate:OnRotateLeftBegin()
-	self.wndPreview:FindChild("ModelWindow"):ToggleRightSpin(true)
-end
-
----------------------------------------------------------------------------------------------------
-function HousingDecorate:OnRotateLeftEnd()
-	self.wndPreview:FindChild("ModelWindow"):ToggleRightSpin(false)
-end
 
 
 -----------------------------------------------------------------------------------------------
@@ -1897,6 +2192,9 @@ function HousingDecorate:OnFreePlaceDecorSelected(decorSelection)
 			self:ResetPopups()
 			self.bWaitingForLink = false
 			return
+		end
+		if self.decorPreview then
+			self.decorPreview:RevertDecorColor()
 		end
 		self.decorPreview = decorSelection
 		
@@ -1980,9 +2278,16 @@ function HousingDecorate:OnFreePlaceDecorSelected(decorSelection)
              -- display the icon
             self.wndDecorIconFrame:Show(true)
             self.wndDecorIconOptionsWindow:Show(self.wndToggleFrame:FindChild("OpenDecorOptionsBtn"):IsChecked())
+
+			-- reset color shift
+			self.wndDecorColorShiftIcon:SetCheck(false)
+			self.wndDecorColorShiftIcon:Show(not self.bIsWarplot and not self.decorPreview:IsPreview())
+			self.wndColorShift:Show(false)
         else
             -- (!) NOTE TO SELF: This is where we could support "sticky targeting" - AC
-            self.wndFreePlaceFrame:Show(false)    
+            self.wndFreePlaceFrame:Show(false)
+			self.wndColorShift:Show(false)
+			self.wndDecorColorShiftIcon:Show(false)
         end
 	end
 end
@@ -2153,11 +2458,11 @@ function HousingDecorate:UpdateDecorIconPosition(decorSelected) -- this is third
 		
         -- update windows/buttons
         if tScreenInfo.bOnScreen and tScreenInfo.bWasDrawn then
-            self.wndDecorIconBacker :SetSprite(kstrFrameVisible)
+            self.wndDecorIconBacker:SetSprite(kstrFrameVisible)
         elseif tScreenInfo.bOnScreen and not tScreenInfo.bWasDrawn then
-            self.wndDecorIconBacker :SetSprite(kstrFrameNotVisible)
+            self.wndDecorIconBacker:SetSprite(kstrFrameNotVisible)
         elseif not tScreenInfo.bOnScreen then
-            self.wndDecorIconBacker :SetSprite(kstrFrameOffscreen)
+            self.wndDecorIconBacker:SetSprite(kstrFrameOffscreen)
         end
     end
 end
@@ -2165,6 +2470,7 @@ end
 function HousingDecorate:OnDeactivateDecorIcon()
 	Apollo.StopTimer("HousingDecorIconTimer")
 	self.wndDecorIconFrame:Show(false, true)
+	self.wndColorShift:Show(false)
 end
 
 function HousingDecorate:OnDecorIconUpdate()
@@ -2176,12 +2482,13 @@ function HousingDecorate:OnDecorIconUpdate()
         Apollo.StartTimer("HousingDecorIconTimer")
     else
         self.wndDecorIconFrame:Show(false, true)
-		--self.wndToggleFrame:FindChild("OpenDecorOptionsBtn"):SetCheck(false)
+		self.wndColorShift:Show(false)
     end
 end
 
 function HousingDecorate:OnDecorIconOpen(wndHandler, wndControl)
     self.wndDecorIconOptionsWindow:Show(true)
+	self.wndDecorColorShiftIcon:Show(not self.bIsWarplot and not self.decorPreview:IsPreview())
 end
 
 function HousingDecorate:OnDecorIconClose(wndHandler, wndControl)
@@ -2226,6 +2533,96 @@ function HousingDecorate:OnOrientationEdited(wndHandler, wndControl)
 	if self.decorPreview ~= nil then
 		self.decorPreview:SetRotation(fPitch, fRoll, fYaw)
 	end
+end
+
+-----------------------------------------------------------------------------------------------
+-- HousingDecorate ColorShift Options
+-----------------------------------------------------------------------------------------------
+
+function HousingDecorate:OnColorShiftCancelSignal(wndHandler, wndControl)
+	self.wndColorShift:Close()
+	self.wndDecorColorShiftIcon:SetCheck(false)
+	
+	if self.decorPreview then
+		self.decorPreview:RevertDecorColor()
+	end
+end
+
+function HousingDecorate:OnRemoveColorCancelSignal(wndHandler, wndControl)
+    self.wndColorShiftConfirm:Close()
+end
+
+function HousingDecorate:OnBuyColorShiftSignal(wndHandler, wndControl)
+	self.wndColorShift:Show(false)
+	self.wndDecorColorShiftIcon:SetCheck(false)
+end
+
+function HousingDecorate:OnBuyRemoveColorShiftBtn(wndControl, wndHandler)
+	if self.decorPreview then
+		self.decorPreview:SetColor(0)
+		self.decorPreview:Place()
+	end
+
+	self.wndColorShift:Show(false)
+	self.wndDecorColorShiftIcon:SetCheck(false)
+	self.wndColorShiftConfirm:Close()
+end
+
+function HousingDecorate:OnRemoveColorShiftSignal(wndHandler, wndControl)
+	if self.decorPreview:GetDecorColor() == 0 or self.decorPreview:GetDecorColor() == self.decorPreview:GetSavedDecorColor() then
+		self.wndColorShiftConfirm:Invoke()
+		return
+	end
+end
+
+function HousingDecorate:OnColorShiftOptionCheck(wndHandler, wndControl)
+	local tColorShift = wndControl:GetData()
+	self.decorPreview:SetColor(tColorShift.id)
+	
+	if tColorShift.id ~= 0 then
+		local tCashPrice = HousingLib.GetDecorColorPrice(tColorShift.id, false)
+		if tCashPrice.monPrice2 then
+			local xmlPrice1 = XmlDoc.new()
+			tCashPrice.monPrice1:AddToTooltip(xmlPrice1, "", "FFFFFFFF", "Default", "Right")
+			
+			local xmlPrice2 = XmlDoc.new()
+			tCashPrice.monPrice2:AddToTooltip(xmlPrice2, "", "FFFFFFFF", "Default", "Right")
+			
+			self.wndColorShiftActionCashLabel:SetAML(string.format('<P TextColor=\"UI_BtnTextGreenNormal\" Font=\"DefaultButton\" Align="Center">%s</P>', String_GetWeaselString(Apollo.GetString("Housing_ColorShiftApplyFor2"), { strLiteral = xmlPrice1:ToString() }, { strLiteral = xmlPrice2:ToString() })))
+		else
+			local xmlPrice1 = XmlDoc.new()
+			tCashPrice.monPrice1:AddToTooltip(xmlPrice1, "", "FFFFFFFF", "Default", "Right")
+			
+			self.wndColorShiftActionCashLabel:SetAML(string.format('<P TextColor=\"UI_BtnTextGreenNormal\" Font=\"DefaultButton\" Align="Center">%s</P>', String_GetWeaselString(Apollo.GetString("Housing_ColorShiftApplyFor"), { strLiteral = xmlPrice1:ToString() })))
+		end
+	end
+	self.wndColorShiftActionCash:Show(self.decorPreview:GetSavedDecorColor() ~= tColorShift.id and tColorShift.id ~= 0)
+	self.wndColorShiftActionCash:SetActionData(GameLib.CodeEnumConfirmButtonType.DecorColorShift, self.decorPreview, false)
+	
+	self.wndColorShiftActionRemove:Show(self.decorPreview:GetSavedDecorColor() == tColorShift.id or tColorShift.id == 0)
+	
+	if tColorShift.id ~= 0 then
+		local tTokenPrice = HousingLib.GetDecorColorPrice(tColorShift.id, true)
+		if tTokenPrice.monPrice2 then
+			local xmlPrice1 = XmlDoc.new()
+			tTokenPrice.monPrice1:AddToTooltip(xmlPrice1, "", "FFFFFFFF", "Default", "Right")
+			
+			local xmlPrice2 = XmlDoc.new()
+			tTokenPrice.monPrice2:AddToTooltip(xmlPrice2, "", "FFFFFFFF", "Default", "Right")
+		
+			self.wndColorShiftActionTokenLabel:SetAML(string.format('<P TextColor=\"UI_BtnTextGreenNormal\" Font=\"DefaultButton\" Align="Center">%s</P>', String_GetWeaselString(Apollo.GetString("Housing_ColorShiftApplyFor2"), { strLiteral = xmlPrice1:ToString() }, { strLiteral = xmlPrice2:ToString() })))
+		else
+			local xmlPrice1 = XmlDoc.new()
+			tTokenPrice.monPrice1:AddToTooltip(xmlPrice1, "", "FFFFFFFF", "Default", "Right")
+		
+			self.wndColorShiftActionTokenLabel:SetAML(string.format('<P TextColor=\"UI_BtnTextGreenNormal\" Font=\"DefaultButton\" Align="Center">%s</P>', String_GetWeaselString(Apollo.GetString("Housing_ColorShiftApplyFor"), { strLiteral = xmlPrice1:ToString() })))
+		end
+	end
+	self.wndColorShiftActionToken:Show(self.decorPreview:GetSavedDecorColor() ~= tColorShift.id and tColorShift.id ~= 0)
+	self.wndColorShiftActionToken:SetActionData(GameLib.CodeEnumConfirmButtonType.DecorColorShift, self.decorPreview, true)
+	
+	
+	self.wndColorShiftActions:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.Middle)
 end
 
 -----------------------------------------------------------------------------------------------

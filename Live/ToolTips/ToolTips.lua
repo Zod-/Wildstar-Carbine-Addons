@@ -296,6 +296,11 @@ local ktRiskToIcon = {
 	[Unit.CreatureRisk.Major] = {strWnd = "CreatureRisk_High"},
 }
 
+local ktGenericUnlockTypeString = 
+{
+	[GameLib.CodeEnumGenericUnlockType.Dye] = Apollo.GetString("GenericUnlockType_Dye"),
+}
+
 local kcrGroupTextColor					= ApolloColor.new("BlizzardBlue")
 local kcrFlaggedFriendlyTextColor 		= karDispositionColors[Unit.CodeEnumDisposition.Friendly]
 local kcrDefaultUnflaggedAllyTextColor 	= karDispositionColors[Unit.CodeEnumDisposition.Friendly]
@@ -2114,6 +2119,43 @@ local function ItemTooltipPropSortHelper(tItemInfo)
 	return tSorted
 end
 
+-- #############################
+
+local function ItemTooltipUnlockHelper(wndParent, tItemInfo)
+	if not tItemInfo.bGrantsGenericUnlock then
+		return
+	end
+	
+	local strUnlockScope = ""
+	if tItemInfo.bAccountUnlock then
+		strUnlockScope = Apollo.GetString("ItemTooltip_GenericUnlockAccount")
+	else
+		strUnlockScope = Apollo.GetString("ItemTooltip_GenericUnlockCharacter")
+	end
+	
+	local wndScope = Apollo.LoadForm("ui\\Tooltips\\TooltipsForms.xml", "SimpleRowSmallML", wndParent)
+	wndScope:SetAML(string.format("<P Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</P>", kUIBody, strUnlockScope))
+	wndScope:SetHeightToContentHeight()
+
+		-- Unlocks
+	if tItemInfo.arUnlocks then
+		for idx, tCur in pairs(tItemInfo.arUnlocks) do
+			local wnd = Apollo.LoadForm("ui\\Tooltips\\TooltipsForms.xml", "SimpleRowSmallML", wndParent)
+			local strResult = ""
+			local strColor = kUIBody
+			if tCur.bUnlocked then
+				strResult = String_GetWeaselString(Apollo.GetString("ItemTooltip_GenericUnlockKnown"), ktGenericUnlockTypeString[tCur.eGenericUnlockType], tCur.strUnlockName)
+				strColor = "ItemQuality_Inferior"
+			else
+				strResult = String_GetWeaselString(Apollo.GetString("ItemTooltip_GenericUnlockUnknown"), ktGenericUnlockTypeString[tCur.eGenericUnlockType], tCur.strUnlockName)
+			end
+
+			wnd:SetAML(string.format("<P Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</P>", strColor, strResult))
+			wnd:SetHeightToContentHeight()
+		end
+	end
+end
+
 -- Item Tooltip Generate
 -- Flags: bBuyBack, idVendorUnique, itemModData, tGlyphData, arGlyphIds, strMaker, itemCompare, bPermanent, bNotEquipped, tCompare, bInvisibleFrame, bShowSimple, strAppend
 local function GenerateItemTooltipForm(luaCaller, wndParent, itemSource, tFlags, nCount)
@@ -2175,6 +2217,7 @@ local function GenerateItemTooltipForm(luaCaller, wndParent, itemSource, tFlags,
 		--
 		ItemTooltipChargeHelper(wndItems, itemOne)
 		ItemTooltipSpellEffectHelper(wndItems, itemOne)
+		ItemTooltipUnlockHelper(wndItems, itemOne)
 		--
 		ItemTooltipEmptySocketsHelper(wndItems, itemOne, itemTwo)
 		--

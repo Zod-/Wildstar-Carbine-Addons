@@ -401,6 +401,14 @@ function Dialog:HelperComputeRewardIcon(wndCurr, idReward, tChoiceRewardData)
 				end				
 				wndCurr:SetTooltip(strText)
 			end
+		elseif tFoundRewardData.eType == Quest.Quest2RewardType_GenericUnlockAccount then
+			strIconSprite = tFoundRewardData.tUnlockInfo.strIconSprite
+			local strText = String_GetWeaselString(Apollo.GetString("FormatQuestReward_GenericUnlockAccount"), tFoundRewardData.tUnlockInfo.strUnlockName)
+			wndCurr:SetTooltip(strText)
+		elseif tFoundRewardData.eType == Quest.Quest2RewardType_GenericUnlockCharacter then
+			strIconSprite = tFoundRewardData.tUnlockInfo.strIconSprite
+			local strText = String_GetWeaselString(Apollo.GetString("FormatQuestReward_GenericUnlockCharacter"), tFoundRewardData.tUnlockInfo.strUnlockName)
+			wndCurr:SetTooltip(strText)
 		end
 
 		wndCurr:FindChild("ResponseItemIcon"):Show(false)
@@ -486,6 +494,16 @@ function Dialog:HelperDrawLootItem(wndCurrReward, tCurrReward, bSimple)
 			wndCurrReward:FindChild("LootCashWindow"):Show(true)
 			wndCurrReward:FindChild("LootCashWindow"):SetMoneySystem(Money.CodeEnumCurrencyType.GroupCurrency, 0, 0, tCurrReward.eAccountCurrencyType or 0)
 			wndCurrReward:FindChild("LootCashWindow"):SetAmount(tCurrReward.nAmount, 0)
+			wndCurrReward:SetTooltip(strText)
+		elseif tCurrReward.eType == Quest.Quest2RewardType_GenericUnlockAccount then
+			strIconSprite = tCurrReward.tUnlockInfo.strIconSprite
+			local strText = String_GetWeaselString(Apollo.GetString("FormatQuestReward_GenericUnlockAccount"), tCurrReward.tUnlockInfo.strUnlockName)
+			wndCurrReward:FindChild("LootDescription"):SetText(strText)
+			wndCurrReward:SetTooltip(strText)
+		elseif tCurrReward.eType == Quest.Quest2RewardType_GenericUnlockCharacter then
+			strIconSprite = tCurrReward.tUnlockInfo.strIconSprite
+			local strText = String_GetWeaselString(Apollo.GetString("FormatQuestReward_GenericUnlockCharacter"), tCurrReward.tUnlockInfo.strUnlockName)
+			wndCurrReward:FindChild("LootDescription"):SetText(strText)
 			wndCurrReward:SetTooltip(strText)
 		end
 	end
