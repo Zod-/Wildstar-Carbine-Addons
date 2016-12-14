@@ -327,7 +327,7 @@ function LiveEvents:RedrawMainSection()
 	end
 	wndbtnNavpoint:Enable(tStartLocation ~= nil)
 	wndbtnRapidTransport:Enable(tStartLocation ~= nil)
-	if tStartLocation ~= nil then
+	if tStartLocation == nil then
 		wndbtnNavpoint:SetTooltip(Apollo.GetString("LiveEvents_DisabledNavPoint"))
 		wndbtnRapidTransport:SetTooltip(Apollo.GetString("LiveEvents_DisabledRapidTransport"))
 	else
