@@ -382,7 +382,7 @@ function Trading:OnP2PTradeQueryDragDrop(wndHandler, wndControl, nX, nY, wndSour
 	end
 	if strType == "DDBagItem" then
 		local itemSource = Item.GetItemFromInventoryLoc(nValue)
-		if itemSource:IsAlwaysTradeable() then
+		if itemSource:IsAlwaysTradeable() or itemSource:IsTradeableTo(self.unitTradePartner) then
 			if self.nNextEmptySlot ~= nil then
 				self.tYourItem[self.nNextEmptySlot]:FindChild("Icon"):SetSprite(kstrValidItemIcon)
 			end

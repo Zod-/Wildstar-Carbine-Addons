@@ -1472,6 +1472,14 @@ function QuestLog:HelperBuildRewardsRec(wndReward, tRewardData, bReceived)
 			end
 			wndReward:SetTooltip(strText)
 		end
+	elseif tRewardData.eType == Quest.Quest2RewardType_GenericUnlockAccount then
+		strSprite = tRewardData.tUnlockInfo.strIconSprite
+		strText = String_GetWeaselString(Apollo.GetString("FormatQuestReward_GenericUnlockAccount"), tRewardData.tUnlockInfo.strUnlockName)
+		wndReward:SetTooltip(strText)
+	elseif tRewardData.eType == Quest.Quest2RewardType_GenericUnlockCharacter then
+		strSprite = tRewardData.tUnlockInfo.strIconSprite
+		strText = String_GetWeaselString(Apollo.GetString("FormatQuestReward_GenericUnlockCharacter"), tRewardData.tUnlockInfo.strUnlockName)
+		wndReward:SetTooltip(strText)
 	end
 
 	wndReward:FindChild("RewardIcon"):SetSprite(strSprite)

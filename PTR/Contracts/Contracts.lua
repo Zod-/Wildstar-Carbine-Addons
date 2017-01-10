@@ -135,7 +135,7 @@ function Contracts:OpenContracts()
 		wndRewardListCloseBtn:SetCheck(true)
 		
 		local wndActiveContractContainer = wndContract:FindChild("ActiveContractContainer")
-		for idx = 1, ContractsLib.kMaxActiveContracts do
+		for idx = 1, ContractsLib.GetMaxActiveContracts() do
 			local wndActive = Apollo.LoadForm(self.xmlDoc, "ActiveContract", wndActiveContractContainer, self)
 			wndActive:SetTooltip(Apollo.GetString("Contracts_EmptyActiveContractTooltip"))
 			wndActive:FindChild("QualityIcon"):Show(false)
@@ -730,7 +730,7 @@ function Contracts:DrawPeriodicContracts(wndContainer, tAvailableContracts, nAct
 				wndSelectBtn:ChangeArt("Contracts:btnContracts_CheckBoxSlotted")
 			elseif contractAvailable:IsCompleted() then
 				wndSelectBtn:ChangeArt("Contracts:btnContracts_CheckBoxLocked")
-			elseif nActiveContractCount == ContractsLib.kMaxActiveContracts then
+			elseif nActiveContractCount == ContractsLib.GetMaxActiveContracts() then
 				wndSelectBtn:ChangeArt("Contracts:btnContracts_CheckBoxLocked")
 			else
 				wndSelectBtn:ChangeArt("Contracts:btnContracts_CheckBox")
@@ -915,7 +915,7 @@ function Contracts:BuildContractTooltip(contract, nActiveContractCount)
 		strTooltip = String_GetWeaselString(Apollo.GetString("Contracts_ActivePrefix"), String_GetWeaselString(Apollo.GetString("Contracts_ContractTitlePoints"), queQuest:GetTitle(), contract:GetRewardTrackValue()))
 	elseif contract:IsCompleted() then
 		strTooltip = String_GetWeaselString(Apollo.GetString("Contracts_DonePrefix"), queQuest:GetTitle())
-	elseif nActiveContractCount == ContractsLib.kMaxActiveContracts then
+	elseif nActiveContractCount == ContractsLib.GetMaxActiveContracts() then
 		strTooltip = String_GetWeaselString(Apollo.GetString("Contracts_ContractTitlePoints"), queQuest:GetTitle(), contract:GetRewardTrackValue())
 	else
 		strTooltip = String_GetWeaselString(Apollo.GetString("Contracts_ContractTitlePoints"), queQuest:GetTitle(), contract:GetRewardTrackValue())

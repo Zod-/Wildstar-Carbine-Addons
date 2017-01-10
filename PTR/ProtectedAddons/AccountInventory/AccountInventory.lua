@@ -322,6 +322,16 @@ function AccountInventory:HelperAddPendingSingleToContainer(wndParent, tPendingA
 		strName = tPendingAccountItem.accountCurrency.monCurrency:GetMoneyString(false)
 		strIcon = tPendingAccountItem.icon
 		strTooltip = Apollo.GetString(ktCurrencies[tPendingAccountItem.accountCurrency.accountCurrencyEnum].strTooltip or "")
+	elseif tPendingAccountItem.tUnlockSet then
+		strName = tPendingAccountItem.name
+		if #tPendingAccountItem.tUnlockSet.arUnlocks > 0 then
+			strIcon = tPendingAccountItem.tUnlockSet.arUnlocks[1].strIconSprite
+			if not strName then
+				strName = tPendingAccountItem.tUnlockSet.arUnlocks[1].strUnlockName
+			end
+		else
+			strIcon = tPendingAccountItem.icon
+		end
 	else -- Error Case
 		return
 	end
@@ -609,7 +619,7 @@ function AccountInventory:RefreshInventory()
 				or (not bShowCostume and eItemFamily == Item.CodeEnumItem2Family.Costume)
 				or (not bShowConsumable and (eItemFamily == Item.CodeEnumItem2Family.Consumable and eItemType == Item.CodeEnumItemType.OtherConsumable and eItemCategory == Item.CodeEnumItem2Category.OtherConsumable))
 				or (not bShowLootBag and (eItemType == Item.CodeEnumItemType.GenericLootBag and eItemCategory == Item.CodeEnumItem2Category.LootBag))
-				or (not bShowDye and (eItemType == Item.CodeEnumItemType.Dye or eItemType == Item.CodeEnumItemType.DyeCollection or eItemType == Item.CodeEnumItemType.DyeBag))
+				or (not bShowDye and (tAccountItem.bIsDyeUnlock or eItemType == Item.CodeEnumItemType.Dye or eItemType == Item.CodeEnumItemType.DyeCollection or eItemType == Item.CodeEnumItemType.DyeBag))
 				or (not bShowToy and eItemType == Item.CodeEnumItemType.Toy) 
 			end
 							
@@ -621,6 +631,11 @@ function AccountInventory:RefreshInventory()
 					strName = String_GetWeaselString(Apollo.GetString("AccountInventory_EntitlementPrefix"), tAccountItem.entitlement.name)
 				elseif tAccountItem.accountCurrency then
 					strName = tAccountItem.accountCurrency.monCurrency:GetMoneyString(false)
+				elseif tAccountItem.tUnlockSet then
+					strName = tAccountItem.name
+					if not strName and #tAccountItem.tUnlockSet.arUnlocks > 0 then
+						strName = tAccountItem.tUnlockSet.arUnlocks[1].strUnlockName
+					end
 				end
 				strName = String_GetWeaselString("$1n", strName)
 			
@@ -676,7 +691,7 @@ function AccountInventory:RefreshInventory()
 				or (not bShowCostume and eItemFamily == Item.CodeEnumItem2Family.Costume)
 				or (not bShowConsumable and (eItemFamily == Item.CodeEnumItem2Family.Consumable and eItemType == Item.CodeEnumItemType.OtherConsumable and eItemCategory == Item.CodeEnumItem2Category.OtherConsumable))
 				or (not bShowLootBag and (eItemType == Item.CodeEnumItemType.GenericLootBag and eItemCategory == Item.CodeEnumItem2Category.LootBag))
-				or (not bShowDye and (eItemType == Item.CodeEnumItemType.Dye or eItemType == Item.CodeEnumItemType.DyeCollection or eItemType == Item.CodeEnumItemType.DyeBag))
+				or (not bShowDye and (tAccountItem.bIsDyeUnlock or eItemType == Item.CodeEnumItemType.Dye or eItemType == Item.CodeEnumItemType.DyeCollection or eItemType == Item.CodeEnumItemType.DyeBag))
 				or (not bShowToy and eItemType == Item.CodeEnumItemType.Toy) 
 			end
 			
@@ -688,6 +703,11 @@ function AccountInventory:RefreshInventory()
 					strName = String_GetWeaselString(Apollo.GetString("AccountInventory_EntitlementPrefix"), tAccountItem.entitlement.name)
 				elseif tAccountItem.accountCurrency then
 					strName = tAccountItem.accountCurrency.monCurrency:GetMoneyString(false)
+				elseif tAccountItem.tUnlockSet then
+					strName = tAccountItem.name
+					if not strName and #tAccountItem.tUnlockSet.arUnlocks > 0 then
+						strName = tAccountItem.tUnlockSet.arUnlocks[1].strUnlockName
+					end
 				end
 				strName = String_GetWeaselString("$1n", strName)
 			

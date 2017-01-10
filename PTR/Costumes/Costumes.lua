@@ -581,7 +581,7 @@ function Costumes:FillSlot(eSlot, bIsVisible, itemShown, bIsEquippedItem)
 		
 		local tItemCostumeInfo = itemShown:GetCostumeUnlockInfo()
 		local wndInvalidItemOverlay = wndSlotFilled:FindChild("UnusableCostumeSlotItemOverlay")
-		wndInvalidItemOverlay:Show(not (tItemCostumeInfo and tItemCostumeInfo.bCanUseInCostume))
+		wndInvalidItemOverlay:Show(not bIsEquippedItem and not (tItemCostumeInfo and tItemCostumeInfo.bCanUseInCostume and tItemCostumeInfo.bUnlocked))
 		
 		self:ClearSlotDyeSelection(eSlot)
 		self:UpdateCost()
@@ -1541,6 +1541,14 @@ function Costumes:OnGenerateTooltipEquipped(wndHandler, wndControl, eType, itemC
 	if eSlot and itemData == self.costumeDisplayed:GetSlotItem(eSlot) then
 		if self.nDisplayedCostumeId and self.nDisplayedCostumeId ~= 0 then
 			strAppend = strAppend .. "<P>" .. Apollo.GetString("Costumes_RemoveTooltip") .. "</P>"
+			local tUnlockInfo = itemData:GetCostumeUnlockInfo()
+			if tUnlockInfo then
+				if not tUnlockInfo.bCanUseInCostume then
+					strAppend = "<P TextColor=\"Reddish\">" .. Apollo.GetString("Costumes_Tooltip_CostumeItemNotUsable") .. "</P>" .. strAppend
+				elseif not tUnlockInfo.bUnlocked then
+					strAppend = "<P TextColor=\"Reddish\">" .. Apollo.GetString("Costumes_Tooltip_CostumeItemNotUnlocked") .. "</P>" .. strAppend
+				end
+			end
 		else
 			strAppend = nil
 		end

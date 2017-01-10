@@ -1518,13 +1518,14 @@ function Storefront:SetupOffer(tOffer, nVariant, nCategoryId)
 			bCantClaimAccount = bCantClaimAccount or (tAccountItem.eClaimState ~= nil
 				and (tAccountItem.eClaimState == StorefrontLib.CodeEnumClaimItemState.AccountMaxed or tAccountItem.eClaimState == StorefrontLib.CodeEnumClaimItemState.AccountMaxedWithPending))
 				or tAccountItem.bAlreadyOwnBoundMultiRedeem
+				or tAccountItem.bAccountUnlockAlreadyOwned
 			bCantClaimAccountPending = bCantClaimAccountPending
 				or (tAccountItem.eClaimState ~= nil and tAccountItem.eClaimState == StorefrontLib.CodeEnumClaimItemState.AccountMaxedWithPending)
 				or tAccountItem.bAlreadyOwnPendingMultiRedeem
 		
 			bCantClaim = bCantClaim
 				and (tAccountItem.eClaimState == nil or tAccountItem.eClaimState ~= StorefrontLib.CodeEnumClaimItemState.CanClaim)
-				and (tAccountItem.bAlreadyOwnPendingMultiRedeem or tAccountItem.bAlreadyOwnBoundMultiRedeem)
+				and (tAccountItem.bAlreadyOwnPendingMultiRedeem or tAccountItem.bAlreadyOwnBoundMultiRedeem or tAccountItem.bAccountUnlockAlreadyOwned)
 			
 			if tAccountItem.monCurrency ~= nil and tAccountItem.monCurrency:GetAccountCurrencyType() == AccountItemLib.CodeEnumAccountCurrency.MysticShiny then
 				bContainsFortuneCoins = true
@@ -2552,13 +2553,14 @@ function Storefront:OnPurchaseWithCheck(wndHandler, wndControl, eMouseButton)
 			bCantClaimAccount = bCantClaimAccount or (tAccountItem.eClaimState ~= nil
 				and (tAccountItem.eClaimState == StorefrontLib.CodeEnumClaimItemState.AccountMaxed or tAccountItem.eClaimState == StorefrontLib.CodeEnumClaimItemState.AccountMaxedWithPending))
 				or tAccountItem.bAlreadyOwnBoundMultiRedeem
+				or tAccountItem.bAccountUnlockAlreadyOwned
 			bCantClaimAccountPending = bCantClaimAccountPending
 				or (tAccountItem.eClaimState ~= nil and tAccountItem.eClaimState == StorefrontLib.CodeEnumClaimItemState.AccountMaxedWithPending)
 				or tAccountItem.bAlreadyOwnPendingMultiRedeem
 		
 			bCantClaim = bCantClaim
 				and ((tAccountItem.eClaimState ~= nil and tAccountItem.eClaimState ~= StorefrontLib.CodeEnumClaimItemState.CanClaim)
-					or tAccountItem.bAlreadyOwnPendingMultiRedeem or tAccountItem.bAlreadyOwnBoundMultiRedeem)
+					or tAccountItem.bAlreadyOwnPendingMultiRedeem or tAccountItem.bAlreadyOwnBoundMultiRedeem or tAccountItem.bAccountUnlockAlreadyOwned)
 		elseif tAccountItem.eItemType == StorefrontLib.CodeEnumStoreItemType.Subscription then
 			bCantClaim = false
 		end
