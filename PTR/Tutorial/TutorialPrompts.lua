@@ -806,6 +806,8 @@ end
 function TutorialPrompts:HideTutorialCallout(eAnchor)
 	if self.tVisibleCallouts[eAnchor] and self.tVisibleCallouts[eAnchor]:IsValid() then
 		self.tVisibleCallouts[eAnchor]:Close()
+		self.tVisibleCallouts[eAnchor]:Destroy()
+		self.tVisibleCallouts[eAnchor] = nil
 	end
 end
 
@@ -817,6 +819,15 @@ function TutorialPrompts:OnCloseCalloutBtn(wndHandler, wndControl)
 			self.tVisibleCallouts[eAnchor] = nil
 		end
 	end
+end
+
+function TutorialPrompts:OnTutorialCalloutClosed(wndHandler, wndControl)
+	if wndHandler ~= wndControl then
+		return
+	end
+	
+	local eAnchor = wndControl:GetData()
+	Event_FireGenericEvent("Tutorial_CalloutClosed", eAnchor)
 end
 
 function TutorialPrompts:OnWindowTransitionComplete(wndHandler, wndControl)

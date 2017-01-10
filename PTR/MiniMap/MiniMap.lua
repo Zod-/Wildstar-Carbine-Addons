@@ -112,6 +112,7 @@ local ktInstanceSettingTypeStrings =
 {
 	Veteran = Apollo.GetString("MiniMap_Veteran"),
 	Rallied = Apollo.GetString("MiniMap_Rallied"),
+	Prime = Apollo.GetString("MiniMap_Prime"),
 }
 
 local knSaveVersion = 4
@@ -794,7 +795,11 @@ function MiniMap:UpdateZoneName(strZoneName)
 
 	local strDifficulty = nil
 	if tInstanceSettingsInfo.eWorldDifficulty == GroupLib.Difficulty.Veteran then
-		strDifficulty = ktInstanceSettingTypeStrings.Veteran
+		if GameLib.GetWorldMaxPrimeLevel() > 0 then
+			strDifficulty = ktInstanceSettingTypeStrings.Prime
+		else
+			strDifficulty = ktInstanceSettingTypeStrings.Veteran
+		end
 	end
 
 	local strScaled = nil

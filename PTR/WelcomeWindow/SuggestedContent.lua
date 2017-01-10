@@ -335,12 +335,17 @@ function SuggesteContent:OnExitWindowRequestContent(wndParent)
 	if not wndParent or not wndParent:IsValid() then
 		return
 	end
+	
+	local wndContainer = wndParent:FindChild("SuggestedContentContainer")
+	if not wndContainer then
+		return
+	end
 
 	if not self.tSuggestedInfo then
 		self:InitializeContent()
 	end
 
-	self.wndSuggestedContentExitWindow = Apollo.LoadForm(self.xmlDoc, "SuggestedContentExitWindow", wndParent:FindChild("SuggestedContentContainer"), self)
+	self.wndSuggestedContentExitWindow = Apollo.LoadForm(self.xmlDoc, "SuggestedContentExitWindow", wndContainer, self)
 
 	local nCount = 0
 	local arRandContentContainer = {}

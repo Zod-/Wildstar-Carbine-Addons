@@ -897,14 +897,25 @@ function GroupDisplay:DrawMemberPortrait(tPortrait, tMemberInfo)
 	end
 	tPortrait.wndPathIcon:SetSprite(strPathSprite)
 
-	local nLevel = tMemberInfo.nEffectiveLevel > 0 and tMemberInfo.nEffectiveLevel or tMemberInfo.nLevel
 	local strClass = Apollo.GetString(ktIdToClassTooltip[tMemberInfo.eClassId])
 	local strClassSprite = ""
 	if ktInviteClassIcons[tMemberInfo.eClassId] then
 		strClassSprite = ktInviteClassIcons[tMemberInfo.eClassId]
 	end
 	tPortrait.wndClass:SetSprite(strClassSprite)
-	tPortrait.wndClass:SetTooltip(String_GetWeaselString(Apollo.GetString("CRB_LevelCLass"), nLevel, strClass))
+
+	local strLevelTooltip = ""
+	if tMemberInfo.nEffectiveLevel > 0 and tMemberInfo.nEffectiveLevel ~= tMemberInfo.nLevel then
+		if unitMember and unitMember:IsMentoring() then
+			strLevelTooltip = String_GetWeaselString(Apollo.GetString("CRB_LevelClassMentoring"), tMemberInfo.nLevel, strClass, tMemberInfo.nEffectiveLevel)
+		else
+			strLevelTooltip = String_GetWeaselString(Apollo.GetString("CRB_LevelClassRallied"), tMemberInfo.nLevel, strClass, tMemberInfo.nEffectiveLevel)
+		end
+	else
+		strLevelTooltip = String_GetWeaselString(Apollo.GetString("CRB_LevelCLass"), tMemberInfo.nLevel, strClass)
+	end
+	
+	tPortrait.wndClass:SetTooltip(strLevelTooltip)
 
 	tPortrait.wndMark:Show(tMemberInfo.nMarkerId ~= 0)
 	if tMemberInfo.nMarkerId ~= 0 then

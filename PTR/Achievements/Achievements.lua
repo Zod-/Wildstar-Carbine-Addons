@@ -92,6 +92,7 @@ function Achievements:OnDocumentReady()
 		[AchievementsLib.CodeEnumAchievementCategory.ItemImbuements]	= "IconSprites:Icon_Achievement_Achievement_GenericAchievement",
 		[AchievementsLib.CodeEnumAchievementCategory.LiveEvents]		= "IconSprites:Icon_Achievement_Achievement_GenericAchievement",
 		[AchievementsLib.CodeEnumAchievementCategory.Contracts]			= "IconSprites:Icon_Achievement_Achievement_Contract",
+		[AchievementsLib.CodeEnumAchievementCategory.PrimalMatrix]		= "IconSprites:Icon_Achievement_Achievement_PrimalMatrix",
 	}
 end
 
