@@ -290,7 +290,7 @@ local ktRankToString = {
 	[Unit.CodeEnumRank.Fodder] = {strLocText = Apollo.GetString("TargetFrame_Fodder")},
 }
 
-local karPrimeItemQualityStrings =
+local karPrimeTierItemQualityStrings =
 {
 	[Item.CodeEnumItemQuality.Inferior] 		= "ItemTooltip_PrimeTier",
 	[Item.CodeEnumItemQuality.Average] 			= "ItemTooltip_PrimeTier",
@@ -299,6 +299,16 @@ local karPrimeItemQualityStrings =
 	[Item.CodeEnumItemQuality.Superb] 			= "ItemTooltip_PrimeTierEldan",
 	[Item.CodeEnumItemQuality.Legendary] 		= "ItemTooltip_PrimeTierAncientEldan",
 	[Item.CodeEnumItemQuality.Artifact]		 	= "ItemTooltip_PrimeTierAncientEldan",
+}
+local karPrimeItemQualityStrings =
+{
+	[Item.CodeEnumItemQuality.Inferior] 		= "ItemTooltip_Prime",
+	[Item.CodeEnumItemQuality.Average] 			= "ItemTooltip_Prime",
+	[Item.CodeEnumItemQuality.Good] 			= "ItemTooltip_Prime",
+	[Item.CodeEnumItemQuality.Excellent] 		= "ItemTooltip_Prime",
+	[Item.CodeEnumItemQuality.Superb] 			= "ItemTooltip_PrimeEldan",
+	[Item.CodeEnumItemQuality.Legendary] 		= "ItemTooltip_PrimeAncientEldan",
+	[Item.CodeEnumItemQuality.Artifact]		 	= "ItemTooltip_PrimeAncientEldan",
 }
 
 local ktRiskToIcon = {
@@ -1050,9 +1060,11 @@ local function ItemTooltipBasicStatsHelper(wndParent, tItemInfo, itemSource)
 			ItemTooltipBasicStatsHelperWindowBuilder(wndLeftColumn, kUIBody, String_GetWeaselString(Apollo.GetString("Tooltips_ItemLevel"), nItemLevel ))
 		end
 		
-		if tItemInfo.nPrimeTier then
-			local strPrimeTier = string.format("%s", String_GetWeaselString(Apollo.GetString(karPrimeItemQualityStrings[tItemInfo.eQuality]), tItemInfo.nPrimeTier))
-			ItemTooltipBasicStatsHelperWindowBuilder(wndLeftColumn, kUIGreen, strPrimeTier )	
+		if tItemInfo.nPrimeTier and tItemInfo.nPrimeTier > 0 then
+			local strPrimeTier = string.format("%s", String_GetWeaselString(Apollo.GetString(karPrimeTierItemQualityStrings[tItemInfo.eQuality]), tItemInfo.nPrimeTier))
+			ItemTooltipBasicStatsHelperWindowBuilder(wndLeftColumn, kUIGreen, strPrimeTier )
+		elseif tItemInfo.bScalable then
+			ItemTooltipBasicStatsHelperWindowBuilder(wndLeftColumn, kUIGreen, String_GetWeaselString(Apollo.GetString(karPrimeItemQualityStrings[tItemInfo.eQuality])))
 		end
 		
 		-- Binding Messages
@@ -1363,7 +1375,7 @@ local function ItemTooltipInnatePropHelper(wndParent, tSortedInnatePropList, bUs
 			end
 		end
 
-		wnd:SetAML(string.format("<T Font=\"%s\" TextColor=\"%s\">%s</T>", "CRB_Header10", kUITeal, strLine))
+		wnd:SetAML(string.format("<T Font=\"%s\" TextColor=\"%s\">%s</T>", "CRB_Header11", kUITeal, strLine))
 		wnd:SetHeightToContentHeight()
 	end
 end

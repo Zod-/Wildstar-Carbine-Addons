@@ -261,35 +261,7 @@ function PrimalMatrix:OnPrimalMatrixOn()
 	wndMatrix:SetNodeButtonTemplate(MatrixWindow.CodeEnumPrimalMatrixNodeVisualType.Mixed, MatrixWindow.CodeEnumPrimalMatrixNodeState.Started, "Node_Green_Started")
 	wndMatrix:SetNodeButtonTemplate(MatrixWindow.CodeEnumPrimalMatrixNodeVisualType.Mixed, MatrixWindow.CodeEnumPrimalMatrixNodeState.Completed, "Node_Green_Completed")
 	
-	
-	--wndMatrix:SetNodeButtonTemplate(nodeType, nodeState, spriteName)
-	--wndMatrix:SetNodeConnectorSprite(spriteName)
-	--wndMatrix:SetNodePathSprite(spriteName)
-
-	--[[
-		Console Variables
-			ui.matrixWindow.zoomDefault
-			ui.matrixWindow.zoomRate
-			ui.matrixWindow.connectorWidth
-			ui.matrixWindow.zoomMin
-			ui.matrixWindow.zoomMax
-			ui.matrixWindow.zoomDetailMin
-			ui.matrixWindow.connectorWidth
-			ui.matrixWindow.connectorChangeMS
-			ui.matrixWindow.backgroundBaseColor
-			ui.matrixWindow.enablePanBounds
-			ui.matrixWindow.nodeAllocationAvailableTextColor
-			ui.matrixWindow.nodeAllocationInsufficientTextColor
-			ui.matrixWindow.nodeAllocationCompletedTextColor
-
-		Dev Console Variables
-			ui.matrixWindow.showMouseGridCord
-			ui.matrixWindow.showNodeId
-			ui.matrixWindow.showGridOutline
-	]]--
-	
 	self:UpdateProgressLog()
-
 	
 	local tStarterNode = self.tWndRefs.wndMatrix:GetStarterNode()
 	local nRed = GameLib.GetPlayerCurrency(Money.CodeEnumCurrencyType.RedEssence):GetAmount()
@@ -312,6 +284,8 @@ function PrimalMatrix:OnPrimalMatrixOn()
 	else
 		self.tWndRefs.wndWelcome:Show(not GameLib.IsTutorialViewed(GameLib.CodeEnumTutorial.PrimalMatrixWelcome))
 	end
+	
+	self:CheckExchangeBtnEnable()
 end
 
 -----------------------------------------------------------------------------------------------
@@ -330,6 +304,8 @@ function PrimalMatrix:OnConfirmSaveConfirmed(wndHandler, wndControl)
 	self.tWndRefs.wndPendingSaveConfirmBtn:Show(not self.bConfirmSave)
 	
 	self.idStarterNode = nil
+	
+	self:CheckExchangeBtnEnable()
 end
 
 function PrimalMatrix:OnConfirmSaveCancel(wndHandler, wndControl)
@@ -737,7 +713,9 @@ function PrimalMatrix:OnNodeAllocationChanged(wndHandler, wndControl, idNode, nO
 			GameLib.MarkTutorialViewed(GameLib.CodeEnumTutorial.PrimalMatrixStartingNode, true)
 			
 			self.tWndRefs.wndMatrix:DetachWindowFromNode(self.idStarterNode)
-			self.tWndRefs.wndTutorialStarterNode:Destroy()
+			if self.tWndRefs.wndTutorialStarterNode ~= nil and self.tWndRefs.wndTutorialStarterNode:IsValid() then
+				self.tWndRefs.wndTutorialStarterNode:Destroy()
+			end
 			
 			self.tWndRefs.wndTutorialStarterNode = nil
 			
@@ -1093,6 +1071,15 @@ function PrimalMatrix:OnWelcomeContinue(wndHandler, wndControl)
 	GameLib.MarkTutorialViewed(GameLib.CodeEnumTutorial.PrimalMatrixWelcome, true)
 	self.tWndRefs.wndWelcome:Show(false)
 	Event_ShowTutorial(GameLib.CodeEnumTutorial.PrimalMatrixCurrency)
+end
+
+function PrimalMatrix:CheckExchangeBtnEnable()
+	self.tWndRefs.wndHeaderExchangeBtn:Enable(GameLib.IsTutorialViewed(GameLib.CodeEnumTutorial.PrimalMatrixPending))
+	if GameLib.IsTutorialViewed(GameLib.CodeEnumTutorial.PrimalMatrixPending) then
+		self.tWndRefs.wndHeaderExchangeBtn:SetTooltip("")
+	else
+		self.tWndRefs.wndHeaderExchangeBtn:SetTooltip(Apollo.GetString("PrimalMatrix_ExchangeBtnDisabledTooltip"))
+	end
 end
 
 function PrimalMatrix:OnTutorial_CalloutClosed(eAnchor)

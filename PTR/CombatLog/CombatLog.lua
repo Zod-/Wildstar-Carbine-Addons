@@ -1358,7 +1358,7 @@ function CombatLog:OnCombatLogInterrupted(tEventArgs)
 	
 	local strResult = self.tCache.CombatLogInterrupted[idx]
 	if strResult then
-		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strCasterName, tCastInfo.strSpellName, tCastInfo.strTarget, strColor, tEventArgs.splInterruptingSpell:GetName(), tEventArgs.strCastResult))
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget, strColor, tEventArgs.splInterruptingSpell:GetName(), tEventArgs.strCastResult))
 		
 		return
 	end
@@ -1387,7 +1387,7 @@ function CombatLog:OnCombatLogInterrupted(tEventArgs)
 	strResult = string.format('<P Font="CRB_InterfaceMedium" TextColor="$4n">%s</P>', strResult)
 	self.tCache.CombatLogInterrupted[idx] = strResult
 	
-	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, strCasterName, tCastInfo.strSpellName, tCastInfo.strTarget, strColor, tEventArgs.splInterruptingSpell:GetName(), tEventArgs.strCastResult))
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_Combat, String_GetWeaselString(strResult, tCastInfo.strCaster, tCastInfo.strSpellName, tCastInfo.strTarget, strColor, tEventArgs.splInterruptingSpell:GetName(), tEventArgs.strCastResult))
 end
 
 function CombatLog:OnCombatLogKillStreak(tEventArgs)

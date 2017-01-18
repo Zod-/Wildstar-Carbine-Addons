@@ -671,7 +671,7 @@ function MatchMaker:BuildMatchTable()
 				end
 				
 				local nLevelDiff = nPlayerLevel - tMatchInfo.nMinLevel
-				
+						
 				if tMatchInfo.nMaxLevel == 0 or nPlayerLevel <= tMatchInfo.nMaxLevel then
 					if not self.tMatchList[eTypeIndex][nIndex] then
 						self.tMatchList[eTypeIndex][nIndex] = {}
@@ -944,7 +944,24 @@ function MatchMaker:BuildRoleOptions(eMatchType)
 	local wndShiphandOptions = wndSettings:FindChild("ShiphandOptions")
 	if eMatchType == MatchMakingLib.MatchType.Shiphand or eMatchType == MatchMakingLib.MatchType.WorldStory or eMatchType == MatchMakingLib.MatchType.PrimeLevelExpedition then
 		wndShiphandOptions:Show(true)
-		wndShiphandOptions:FindChild("DontFindOthers"):SetCheck(not self.tQueueOptions[keMasterTabs.PvE].bFindOthers)
+
+		local bForceDoNotFindOthers = false
+		if eMatchType == MatchMakingLib.MatchType.PrimeLevelExpedition then
+			for idx = 1, #self.arMatchesToQueue do
+				if not self.arMatchesToQueue[idx]:IsRandom() then
+					bForceDoNotFindOthers = true
+					break
+				end
+			end
+		end
+		
+		if bForceDoNotFindOthers then
+			wndShiphandOptions:FindChild("DontFindOthers"):SetCheck(true)
+			wndSettings:FindChild("DontFindOthersBlocker"):Show(true)
+		else
+			wndShiphandOptions:FindChild("DontFindOthers"):SetCheck(not self.tQueueOptions[keMasterTabs.PvE].bFindOthers)
+			wndSettings:FindChild("DontFindOthersBlocker"):Show(false)
+		end
 	else
 		local nShiphandHeight = wndShiphandOptions:GetHeight()
 		nNewTop = nTop + nShiphandHeight
@@ -1851,9 +1868,10 @@ function MatchMaker:BuildMatchButton(tblMatch, eMatchType, bIsVeteran, wndParent
 
 	local unitPlayer = GameLib.GetPlayerUnit()
 	if unitPlayer and unitPlayer:IsHeroismUnlocked() then
-		local arRewards = GameLib.GetRewardRotation(tblMatchInfo.nRewardRotationContentId)
+		local arRewards = GameLib.GetRewardRotation(tblMatchInfo.nRewardRotationContentId, matchGame:IsVeteran())
 		local wndRewardIconContainer = wndOption:FindChild("RewardIconContainer")
-		wndOption:FindChild("MultipleRewardsIcon"):Show(false)
+		local wndMultipleRewardsIcon = wndOption:FindChild("MultipleRewardsIcon")
+		wndMultipleRewardsIcon:Show(false)
 		wndRewardIconContainer:Show(false)
 		if arRewards then
 			for idx, tReward in pairs(arRewards) do
@@ -1874,7 +1892,7 @@ function MatchMaker:BuildMatchButton(tblMatch, eMatchType, bIsVeteran, wndParent
 					wndRewardIconMultiplier:SetAnchorOffsets(0,-15,0,-1)
 				end
 				if idx > 1 then
-					wndOption:FindChild("MultipleRewardsIcon"):Show(true)
+					wndMultipleRewardsIcon:Show(true)
 				end
 			end
 		end
@@ -1924,7 +1942,9 @@ function MatchMaker:BuildPrimeLevelMatchButton(tblMatch, eMatchType, wndParent)
 	local bFound = false	
 	local unitPlayer = GameLib.GetPlayerUnit()
 	if unitPlayer and unitPlayer:IsHeroismUnlocked() then
-		local arRewards = GameLib.GetRewardRotation(tblMatchInfo.nRewardRotationContentId)
+		local arRewards = GameLib.GetRewardRotation(tblMatchInfo.nRewardRotationContentId, true)
+		local wndMultipleRewardsIcon = wndOption:FindChild("MultipleRewardsIcon")
+		wndMultipleRewardsIcon:Show(false)
 		if arRewards then
 			for idx, tReward in pairs(arRewards) do
 				if tReward.nRewardType == GameLib.CodeEnumRewardRotationRewardType.Essence then
@@ -1942,6 +1962,9 @@ function MatchMaker:BuildPrimeLevelMatchButton(tblMatch, eMatchType, wndParent)
 					wndRewardIconMultiplier:SetSprite("")
 					wndRewardIconMultiplier:SetAnchorPoints(0,1,1,1)
 					wndRewardIconMultiplier:SetAnchorOffsets(0,-15,0,-1)
+				end
+				if idx > 1 then
+					wndMultipleRewardsIcon:Show(true)
 				end
 			end
 		end
@@ -2261,7 +2284,7 @@ function MatchMaker:SetMatchDetails(matchSelected)
 	local bFound = false
 	local wndRoationRewardContainer = wndInfo:FindChild("RotationRewardsContainer")
 	if unitPlayer and unitPlayer:IsHeroismUnlocked() then
-		local arRotationRewardInfo = GameLib.GetRewardRotation(matchSelected:GetInfo().nRewardRotationContentId)
+		local arRotationRewardInfo = GameLib.GetRewardRotation(matchSelected:GetInfo().nRewardRotationContentId, matchSelected:IsVeteran())
 		local wndRewardIconContainer = wndRoationRewardContainer:FindChild("RewardIconContainer")
 		wndRewardIconContainer:DestroyChildren()
 		if arRotationRewardInfo then
@@ -4177,6 +4200,7 @@ function MatchMaker:SelectPrimeMatch( wndMatchSelection )
 	self.tQueueOptions[self.eSelectedMasterType].nPrimeLevel = tMatch.nPrimeLevel
 	
 	self:ForceUncheckRandomQueue()
+	self:BuildRoleOptions(tMatchInfo.eMatchType)
 end
 
 function MatchMaker:UnselectPrimeMatch( wndMatchSelection )
@@ -4189,6 +4213,9 @@ function MatchMaker:UnselectPrimeMatch( wndMatchSelection )
 	local matchSelected = wndMatchBtn:GetData()
 
 	self:UpdateQueueList(matchSelected, false)
+	if matchSelected then
+		self:BuildRoleOptions(matchSelected:GetInfo().eMatchType)
+	end
 end
 
 function MatchMaker:OnPrimeMatchSelected( wndHandler, wndControl, eMouseButton )
