@@ -247,6 +247,7 @@ local ktContentTypeIcons =
 	[GameLib.CodeEnumRewardRotationContentType.Expedition] = "matchmaker:ContentType_Expedition",
 	[GameLib.CodeEnumRewardRotationContentType.WorldBoss] = "matchmaker:ContentType_WorldBoss",
 	[GameLib.CodeEnumRewardRotationContentType.PvP] = "matchmaker:ContentType_PvP",
+	[GameLib.CodeEnumRewardRotationContentType.DungeonNormal] = "matchmaker:ContentType_Dungeon",
 }
 
 local ktContentTypeString =
@@ -256,6 +257,7 @@ local ktContentTypeString =
 	[GameLib.CodeEnumRewardRotationContentType.Expedition] = Apollo.GetString("ExplorerMission_Expedition"),
 	[GameLib.CodeEnumRewardRotationContentType.WorldBoss] = Apollo.GetString("CRB_WorldBoss"),
 	[GameLib.CodeEnumRewardRotationContentType.PvP] = Apollo.GetString("CRB_Pvp"),
+	[GameLib.CodeEnumRewardRotationContentType.DungeonNormal] = Apollo.GetString("MatchMaker_RandomQueue"),
 }
 
 local ktContentTypeFilterString =
@@ -816,14 +818,15 @@ function MatchMaker:UpdateInMatchControls()
 		
 		local tRewards = matchInstance:GetRotationRewards()
 		local wndLockedRewards = wndOptions:FindChild("LockedRewards")
-		
+		local wndRewardIconContainer = wndLockedRewards:FindChild("RewardIconContainer")
+	
 		local bFound = false
 		if tRewards ~= nil and tRewards.bRewardsLocked then
 			for idx, tReward in pairs(tRewards.arRewards) do
 				if tReward.nRewardType == GameLib.CodeEnumRewardRotationRewardType.Essence then
 					bFound = true
 				
-					self:BuildRewardContainer(wndLockedRewards, tReward)
+					self:BuildRewardContainer(wndRewardIconContainer, tReward)
 					
 					local wndRewardIconEntry = wndLockedRewards:FindChild("RewardIconEntry")
 					wndRewardIconEntry:RemoveEventHandler("GenerateTooltip")
@@ -845,6 +848,7 @@ function MatchMaker:UpdateInMatchControls()
 				end
 			end
 			
+			wndRewardIconContainer:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.RightOrBottom)
 		end
 		
 		wndLockedRewards:Show(tRewards ~= nil and tRewards.bRewardsLocked and bFound)
@@ -1212,13 +1216,12 @@ function MatchMaker:BuildRewardsList(tRewardRotation)
 		if not ( tReward.nRewardType == GameLib.CodeEnumRewardRotationRewardType.Essence and tReward.nMultiplier < 2 ) then
 			local strName = ""
 			local peRewardEvent = nil
-			if tRewardRotation.nContentType == GameLib.CodeEnumRewardRotationContentType.Dungeon or tRewardRotation.nContentType == GameLib.CodeEnumRewardRotationContentType.Expedition or tRewardRotation.nContentType == GameLib.CodeEnumRewardRotationContentType.PvP then
+			if tRewardRotation.nContentType == GameLib.CodeEnumRewardRotationContentType.Dungeon or tRewardRotation.nContentType == GameLib.CodeEnumRewardRotationContentType.Expedition or tRewardRotation.nContentType == GameLib.CodeEnumRewardRotationContentType.PvP or tRewardRotation.nContentType == GameLib.CodeEnumRewardRotationContentType.DungeonNormal then
 				if tRewardRotation.strWorld ~= nil then		
 					strName = tRewardRotation.strWorld
 				else
-					strName = ktTypeNames[tRewardRotation.nMatchType]
+					strName = ktTypeNames[tRewardRotation.eMatchType]
 				end
-					
 			elseif tRewardRotation.nContentType == GameLib.CodeEnumRewardRotationContentType.PeriodicQuest then
 				strName = tRewardRotation.strZoneName
 			elseif tRewardRotation.nContentType == GameLib.CodeEnumRewardRotationContentType.WorldBoss and tRewardRotation.peWorldBoss then
@@ -1250,7 +1253,7 @@ function MatchMaker:BuildFeaturedControl(wndParent, tRewardListEntry)
 	local strButtonText = ""
 	if tRewardListEntry.nContentType == GameLib.CodeEnumRewardRotationContentType.PeriodicQuest then
 		strButtonText = Apollo.GetString("MatchMaker_ViewInfo")
-	elseif tRewardListEntry.nContentType == GameLib.CodeEnumRewardRotationContentType.Dungeon or tRewardListEntry.nContentType == GameLib.CodeEnumRewardRotationContentType.Expedition then
+	elseif tRewardListEntry.nContentType == GameLib.CodeEnumRewardRotationContentType.Dungeon or tRewardListEntry.nContentType == GameLib.CodeEnumRewardRotationContentType.Expedition or tRewardListEntry.nContentType == GameLib.CodeEnumRewardRotationContentType.DungeonNormal then
 		strButtonText = Apollo.GetString("MatchMaker_ViewQueue")
 	elseif tRewardListEntry.nContentType == GameLib.CodeEnumRewardRotationContentType.WorldBoss then
 		strButtonText = Apollo.GetString("MatchMaker_ViewMap")
@@ -1274,7 +1277,10 @@ function MatchMaker:BuildFeaturedControl(wndParent, tRewardListEntry)
 	
 	wndRewardPickContainer:FindChild("TypeIcon"):SetSprite(ktContentTypeIcons[tRewardListEntry.nContentType])
 	wndRewardPickContainer:FindChild("TypeIcon"):SetTooltip(ktContentTypeString[tRewardListEntry.nContentType])
-	self:BuildRewardContainer(wndRewardPickContainer, tRewardListEntry.tRewardInfo)
+	
+	local wndRewardIconContainer = wndRewardPickContainer:FindChild("RewardIconContainer")
+	self:BuildRewardContainer(wndRewardIconContainer, tRewardListEntry.tRewardInfo)
+	wndRewardIconContainer:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.RightOrBottom)
 	wndRewardPickContainer:Show(true)
 end
 
@@ -1370,13 +1376,18 @@ function MatchMaker:HelperConvertToTimeTilExpired(nSeconds)
 end
 
 
-function MatchMaker:BuildRewardContainer(wndParent, tRewardInfo)
+function MatchMaker:BuildRewardContainer(wndParent, tRewardInfo, bUseLabel)
 	if tRewardInfo == nil then
 		return
 	end
 
-	local wndRewardIconContainer = wndParent:FindChild("RewardIconContainer")
-	local wndRewardIconEntry = Apollo.LoadForm(self.xmlDoc, "RewardIconEntry", wndRewardIconContainer, self)
+	local wndRewardIconEntry
+	if bUseLabel then
+		wndRewardIconEntry = Apollo.LoadForm(self.xmlDoc, "RewardIconTextEntry", wndParent, self)
+	else
+		wndRewardIconEntry = Apollo.LoadForm(self.xmlDoc, "RewardIconEntry", wndParent, self)
+	end
+	
 	local strRewardSprite = "CRB_Basekit:kitIcon_White_QuestionMark"
 	wndRewardIconEntry:SetData(tRewardInfo)
 	
@@ -1400,9 +1411,25 @@ function MatchMaker:BuildRewardContainer(wndParent, tRewardInfo)
 		wndRewardMultiplier:Show(true)		
 	else
 		wndRewardMultiplier:Show(false)
-	end	
+	end
+	
+	if bUseLabel then
+		local wndLabel = wndRewardIconEntry:FindChild("Label")
+		local strLabel = ""
+		
+		if tRewardInfo.nRewardType == GameLib.CodeEnumRewardRotationRewardType.Item and tRewardInfo.itemReward then
+			strLabel = tRewardInfo.itemReward:GetName()
+		elseif tRewardInfo.monReward ~= nil then
+			strLabel = tRewardInfo.monReward:GetMoneyString()
+			if tRewardInfo.nMultiplier then
+				strLabel = tRewardInfo.monReward:GetTypeString()
+			end
+		end
 
-	wndRewardIconContainer:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.RightOrBottom)
+		wndLabel:SetText(strLabel)
+	end
+	
+	return wndRewardIconEntry
 end
 
 -----------------------------------------------------------------------------------------------
@@ -1810,6 +1837,36 @@ function MatchMaker:BuildRandomHeader(eMatchType, wndParent)
 	wndSelection:SetData(match)
 	wndTypeLabel:SetData(match)
 	
+	local tRotationRewards = match:GetRotationRewards()
+	local wndRewardIconContainer = wndRandomEntry:FindChild("RewardIconContainer")
+	local wndMultipleRewardsIcon = wndRandomEntry:FindChild("MultipleRewardsIcon")
+	wndMultipleRewardsIcon:Show(false)
+	wndRewardIconContainer:Show(false)
+	if tRotationRewards and tRotationRewards.arRewards then
+		for idx, tReward in pairs(tRotationRewards.arRewards) do
+			wndRewardIconContainer:Show(true)
+			self:BuildRewardContainer(wndRewardIconContainer, tReward)
+			local wndRewardIconEntry = wndRewardIconContainer:FindChild("RewardIconEntry")
+			wndRewardIconEntry:SetAnchorPoints(1,0,1,0)
+			wndRewardIconEntry:SetAnchorOffsets(-wndRewardIconContainer:GetWidth(),0,0,wndRewardIconContainer:GetHeight())
+				
+			local wndRewardIcon = wndRewardIconEntry:FindChild("RewardIcon")
+			wndRewardIcon:SetAnchorPoints(0,0,1,1)
+			wndRewardIcon:SetAnchorOffsets(0,0,0,0)
+				
+			local wndRewardIconMultiplier = wndRewardIconEntry:FindChild("RewardMultiplier")
+			wndRewardIconMultiplier:SetSprite("")
+			wndRewardIconMultiplier:SetAnchorPoints(0,1,1,1)
+			wndRewardIconMultiplier:SetAnchorOffsets(0,-15,0,-1)
+
+			if idx > 1 then
+				wndMultipleRewardsIcon:Show(true)
+			end
+		end
+		
+		wndRewardIconContainer:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.RightOrBottom)
+	end
+	
 	local tRewardInfo = match:GetReward()
 	if tRewardInfo then
 		local wndLabel = wndRandomEntry:FindChild("RewardLabel")
@@ -1877,7 +1934,7 @@ function MatchMaker:BuildMatchButton(tblMatch, eMatchType, bIsVeteran, wndParent
 			for idx, tReward in pairs(arRewards) do
 				if tReward.nRewardType == GameLib.CodeEnumRewardRotationRewardType.Essence then
 					wndRewardIconContainer:Show(true)
-					self:BuildRewardContainer(wndOption, tReward)	
+					self:BuildRewardContainer(wndRewardIconContainer, tReward)	
 					local wndRewardIconEntry = wndRewardIconContainer:FindChild("RewardIconEntry")
 					wndRewardIconEntry:SetAnchorPoints(1,0,1,0)
 					wndRewardIconEntry:SetAnchorOffsets(-wndRewardIconContainer:GetWidth(),0,0,wndRewardIconContainer:GetHeight())
@@ -1895,6 +1952,8 @@ function MatchMaker:BuildMatchButton(tblMatch, eMatchType, bIsVeteran, wndParent
 					wndMultipleRewardsIcon:Show(true)
 				end
 			end
+			
+			wndRewardIconContainer:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.RightOrBottom)
 		end
 	end
 	
@@ -1949,7 +2008,7 @@ function MatchMaker:BuildPrimeLevelMatchButton(tblMatch, eMatchType, wndParent)
 			for idx, tReward in pairs(arRewards) do
 				if tReward.nRewardType == GameLib.CodeEnumRewardRotationRewardType.Essence then
 					bFound = true
-					self:BuildRewardContainer(wndOption, tReward)	
+					self:BuildRewardContainer(wndRewardIconContainer, tReward)	
 					local wndRewardIconEntry = wndRewardIconContainer:FindChild("RewardIconEntry")
 					wndRewardIconEntry:SetAnchorPoints(1,0,1,0)
 					wndRewardIconEntry:SetAnchorOffsets(-wndRewardIconContainer:GetWidth(),0,0,wndRewardIconContainer:GetHeight())
@@ -1967,6 +2026,8 @@ function MatchMaker:BuildPrimeLevelMatchButton(tblMatch, eMatchType, wndParent)
 					wndMultipleRewardsIcon:Show(true)
 				end
 			end
+			
+			wndRewardIconContainer:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.RightOrBottom)
 		end
 	end
 	wndRewardIconContainer:Show(bFound)	
@@ -2242,8 +2303,15 @@ function MatchMaker:SetMatchDetails(matchSelected)
 	-- Set up rewards for random matches
 	local tRewardInfo = matchSelected:GetReward()
 	local wndRewardContainer = wndInfo:FindChild("RewardsContainer")
+	local wndRotationRewardContainer = wndInfo:FindChild("RotationRewardsContainer")
+
 	if tRewardInfo then
-		local wndRewardItem = wndRewardContainer:FindChild("RewardItem")
+		local wndRewardList = wndRewardContainer:FindChild("RewardList")
+		local nLeft, nTop, nRight, nBottom = wndRewardList:GetAnchorOffsets()
+		local nNewHeight = 0
+		
+		local wndRewardItem = wndRewardList:FindChild("RewardItem")
+		
 		if tRewardInfo.itemReward then
 			local wndIcon = wndRewardItem:FindChild("Icon")
 			wndIcon:GetWindowSubclass():SetItem(tRewardInfo.itemReward)
@@ -2254,6 +2322,7 @@ function MatchMaker:SetMatchDetails(matchSelected)
 			wndLabel:SetTextColor(ktItemQualityColors[tRewardInfo.itemReward:GetItemQuality()])
 			
 			wndRewardItem:Show(true)
+			nNewHeight = nNewHeight + wndRewardItem:GetHeight()
 		else
 			wndRewardItem:Show(false)
 		end
@@ -2262,6 +2331,7 @@ function MatchMaker:SetMatchDetails(matchSelected)
 		if tRewardInfo.nXpEarned and tRewardInfo.nXpEarned > 0 then
 			wndXP:FindChild("Label"):SetText(String_GetWeaselString(Apollo.GetString("CRB_XPAmount"), Apollo.FormatNumber(tRewardInfo.nXpEarned, 0, true)))
 			wndXP:Show(true)
+			nNewHeight = nNewHeight + wndXP:GetHeight()
 		else
 			wndXP:Show(false)
 		end
@@ -2270,32 +2340,57 @@ function MatchMaker:SetMatchDetails(matchSelected)
 		if tRewardInfo.monReward then
 			wndMoney:SetAmount(tRewardInfo.monReward, true)
 			wndMoney:Show(true)
+			nNewHeight = nNewHeight + wndMoney:GetHeight()
 		else
 			wndMoney:Show(false)
 		end
 		
+		local tRotationRewardInfo = matchSelected:GetRotationRewards()
+		local wndRotationRewards = wndRewardContainer:FindChild("RotationRewards")
+		wndRotationRewards:DestroyChildren()
+		if tRotationRewardInfo and tRotationRewardInfo.arRewards then
+			local nRotationRewardsHeight = 0
+			for idx, tReward in pairs(tRotationRewardInfo.arRewards) do
+				local wndEntry = self:BuildRewardContainer(wndRotationRewards, tReward, true)
+				nRotationRewardsHeight = nRotationRewardsHeight + wndEntry:GetHeight()
+			end
+			
+			wndRotationRewards:Show(true)
+			local nRewardsLeft, nRewardsTop, nRewardsRight, nRewardsBottom = wndRotationRewards:GetAnchorOffsets()
+			wndRotationRewards:SetAnchorOffsets(nRewardsLeft, nRewardsTop, nRewardsRight, nRewardsTop + nRotationRewardsHeight)
+			wndRotationRewards:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop)
+			nNewHeight = nNewHeight + nRotationRewardsHeight
+		else
+			wndRotationRewards:Show(false)
+		end
+		
+		wndRotationRewardContainer:Show(false)
 		wndRewardContainer:Show(true)
+		wndRewardList:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop)
+		wndRewardList:SetAnchorOffsets(nLeft, nTop, nRight, nTop + nNewHeight)
+		
+		local nContainerLeft, nContainerTop, nContainerRight, nContainerBottom = wndRewardContainer:GetAnchorOffsets()
+		wndRewardContainer:SetAnchorOffsets(nContainerLeft, nContainerTop, nContainerRight, nContainerTop + nTop + nNewHeight)
 	else
+		-- Set up rewards for Reward Rotations
+		local unitPlayer = GameLib.GetPlayerUnit()
+		local bFound = false
+		if unitPlayer and unitPlayer:IsHeroismUnlocked() then
+			local arRotationRewardInfo = GameLib.GetRewardRotation(matchSelected:GetInfo().nRewardRotationContentId, matchSelected:IsVeteran())
+			local wndRewardIconContainer = wndRotationRewardContainer:FindChild("RewardIconContainer")
+			wndRewardIconContainer:DestroyChildren()
+			if arRotationRewardInfo then
+				for idx, tReward in pairs(arRotationRewardInfo) do
+					self:BuildRewardContainer(wndRewardIconContainer, tReward)
+					bFound = true
+				end
+				wndRewardIconContainer:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.LeftOrTop)
+			end
+		end
+
+		wndRotationRewardContainer:Show(bFound)
 		wndRewardContainer:Show(false)
 	end
-	
-	-- Set up rewards for Reward Rotations
-	local unitPlayer = GameLib.GetPlayerUnit()
-	local bFound = false
-	local wndRoationRewardContainer = wndInfo:FindChild("RotationRewardsContainer")
-	if unitPlayer and unitPlayer:IsHeroismUnlocked() then
-		local arRotationRewardInfo = GameLib.GetRewardRotation(matchSelected:GetInfo().nRewardRotationContentId, matchSelected:IsVeteran())
-		local wndRewardIconContainer = wndRoationRewardContainer:FindChild("RewardIconContainer")
-		wndRewardIconContainer:DestroyChildren()
-		if arRotationRewardInfo then
-			for idx, tReward in pairs(arRotationRewardInfo) do
-				self:BuildRewardContainer(wndRoationRewardContainer, tReward)
-				bFound = true
-			end
-			wndRewardIconContainer:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.LeftOrTop)
-		end
-	end
-	wndRoationRewardContainer:Show(bFound)
 	
 	-- Set up team info for Arenas and Warplots	
 	self:UpdateTeamInfo()
@@ -4257,7 +4352,7 @@ function MatchMaker:OnRewardPickInfoBtn( wndHandler, wndControl, eMouseButton )
 	
 	local tRewardEntry = wndControl:GetData()
 		
-	if tRewardEntry.nContentType == GameLib.CodeEnumRewardRotationContentType.Dungeon then
+	if tRewardEntry.nContentType == GameLib.CodeEnumRewardRotationContentType.Dungeon or tRewardEntry.nContentType == GameLib.CodeEnumRewardRotationContentType.DungeonNormal then
 		if tRewardEntry.nMatchType == MatchMakingLib.MatchType.Shiphand or tRewardEntry.nMatchType == MatchMakingLib.MatchType.Adventure or tRewardEntry.nMatchType == MatchMakingLib.MatchType.Dungeon then
 			wndPvEBtn:SetCheck(true)
 			wndFeaturedBtn:SetCheck(false)

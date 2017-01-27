@@ -101,6 +101,7 @@ function CharacterSelection:OnLoadFromCharacter()
 	end
 	
 	self.nCurrentPromotionTokens = AccountItemLib.GetAccountCurrency(AccountItemLib.CodeEnumAccountCurrency.PromotionToken):GetAmount()
+	local nFreeLevel50sRemaining = CharacterScreenLib.GetFreeLevel50sRemaining()
 	
 	self.wndSelectList:FindChild("ModelDialog_FullScreen"):Show(not CharacterScreenLib.HasReceivedCharacterList())
 	
@@ -349,7 +350,7 @@ function CharacterSelection:OnLoadFromCharacter()
 	end
 
 	local bCanCreateCharacter = nNumCharacterSlots > nCharCount
-	local bCanCreate50Character = bCanCreateCharacter and AccountItemLib.GetAccountCurrency(AccountItemLib.CodeEnumAccountCurrency.PromotionToken):GetAmount() > 0
+	local bCanCreate50Character = bCanCreateCharacter and (AccountItemLib.GetAccountCurrency(AccountItemLib.CodeEnumAccountCurrency.PromotionToken):GetAmount() > 0 or nFreeLevel50sRemaining > 0)
 	local bCanBuy50Character = bCanCreateCharacter and not bCanCreate50Character and AccountItemLib.GetEntitlementCount(AccountItemLib.CodeEnumEntitlement.CanPurchasePromotionToken) > 0
 	local bCanGetNewSlot = nMaxSlots > nNumCharacterSlots
 	
@@ -380,7 +381,11 @@ function CharacterSelection:OnLoadFromCharacter()
 		wndCreate:Show(true)
 		wndCreate:FindChild("TitleLvl50"):Show(true)
 		wndCreate:FindChild("DisabledBlocker"):Show(g_arCharacterInWorld ~= nil and g_arCharacterInWorld.nCharacterIndex ~= nil)
-		wndCreate:FindChild("TokenCount"):SetText(PreGameLib.String_GetWeaselString(Apollo.GetString("AccountServices_NumAvailable"), AccountItemLib.GetAccountCurrency(AccountItemLib.CodeEnumAccountCurrency.PromotionToken):GetAmount()))
+		local numAvailable = nFreeLevel50sRemaining
+		if not numAvailable then
+			numAvailable = AccountItemLib.GetAccountCurrency(AccountItemLib.CodeEnumAccountCurrency.PromotionToken):GetAmount()
+		end
+		wndCreate:FindChild("TokenCount"):SetText(PreGameLib.String_GetWeaselString(Apollo.GetString("AccountServices_NumAvailable"), numAvailable))
 	else
 		local wndCreate = self.wndSelectList:FindChild("CreateNewOption92Create50")
 		if wndCreate ~= nil and wndCreate:IsValid() then

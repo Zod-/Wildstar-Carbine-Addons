@@ -112,6 +112,7 @@ function PrimalMatrix:OnPrimalMatrixOn()
 		
 		self.tWndRefs.wndMain = wndMain
 		self.tWndRefs.wndMatrix = wndMain:FindChild("Window")
+		self.tWndRefs.wndHeader = wndMain:FindChild("Header")
 		self.tWndRefs.wndHeaderHeroism = wndMain:FindChild("Header:HeroismContainer:Heroism")
 		self.tWndRefs.wndHeaderCompletionProgressBar = wndMain:FindChild("Header:CompletionProgressBar")
 		self.tWndRefs.wndHeaderCompletionPendingProgressBar = wndMain:FindChild("Header:CompletionPendingProgressBar")
@@ -274,10 +275,11 @@ function PrimalMatrix:OnPrimalMatrixOn()
 			local unitPlayer = GameLib.GetPlayerUnit()
 			if unitPlayer ~= nil and not unitPlayer:IsHeroismUnlocked() then
 				self.tWndRefs.wndClosedMessage:SetText(Apollo.GetString("PrimalMatrix_ClosedLevel"))
+				self.tWndRefs.wndClosed:Show(true)
 			else
 				self.tWndRefs.wndClosedMessage:SetText(Apollo.GetString("PrimalMatrix_ClosedCurrency"))
+				self.tWndRefs.wndClosed:Show(not GameLib.IsTutorialViewed(GameLib.CodeEnumTutorial.PrimalMatrixWelcome))
 			end
-			self.tWndRefs.wndClosed:Show(true)
 		else
 			self.tWndRefs.wndWelcome:Show(not GameLib.IsTutorialViewed(GameLib.CodeEnumTutorial.PrimalMatrixWelcome))
 		end
@@ -575,9 +577,24 @@ function PrimalMatrix:OnGenerateTooltip(wndHandler, wndControl, eType, x, y)
 		
 		self.tWndRefs.wndTooltipActions:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.Middle)
 		self.tWndRefs.wndTooltipActions:Show(self.tWndRefs.wndTooltipActionsPurchase:IsShown() or self.tWndRefs.wndTooltipActionsRefund:IsShown() or self.tWndRefs.wndTooltipActionsPath:IsShown())
+		
+		self:PositionActionText(self.tWndRefs.wndTooltipActionsRefund, Apollo.GetString("PrimalMatrix_Tooltip_RefundRank"))
+		self:PositionActionText(self.tWndRefs.wndTooltipActionsPurchase, Apollo.GetString("PrimalMatrix_Tooltip_PurchaseRank"))
+		self:PositionActionText(self.tWndRefs.wndTooltipActionsPath, Apollo.GetString("PrimalMatrix_Tooltip_MapPath"))
 	else
 		self.tWndRefs.wndTooltip:Show(false)
 	end
+end
+
+function PrimalMatrix:PositionActionText(wndControl, strText)
+	local wndContainer = wndControl:FindChild("Container")
+	local wndText = wndContainer:FindChild("Text")
+	wndText:SetAML("<T Font=\"CRB_Pixel\" TextColor=\"UI_BtnTextGreenNormal\" >"..strText.."</T>")
+	
+	local nContentWidth = wndText:GetContentSize() + wndContainer:FindChild("Icon"):GetWidth()
+	local nLeft, nTop, nRight, nBottom = wndContainer:GetAnchorOffsets()
+	wndContainer:SetAnchorOffsets(nLeft, nTop, nLeft + nContentWidth + 2, nBottom) -- 2 is padding on the text side to account for static space between the icon and text controls.
+	wndControl:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.Middle)
 end
 
 function PrimalMatrix:OnUnitEnteredCombat(unit, bInCombat)
@@ -627,6 +644,13 @@ function PrimalMatrix:UpdateHeaderHeroism()
 	end
 	
 	self.tWndRefs.wndHeaderHeroism:SetText(Apollo.FormatNumber(unitPlayer:GetHeroism(), 0, true))
+
+	local wndContainer = self.tWndRefs.wndHeader:FindChild("HeroismContainer")
+	local nIconWidth = wndContainer:FindChild("Icon"):GetWidth()
+	local nContainerWidth = self.tWndRefs.wndHeaderHeroism:GetContentSize() + nIconWidth  + 10 -- 10 is padding on the text side to balance against space around the icon.
+	
+	local nLeft, nTop, nRight, nBottom = wndContainer:GetAnchorOffsets()
+	wndContainer:SetAnchorOffsets(-nContainerWidth/2, nTop, nContainerWidth/2, nBottom)
 end
 
 function PrimalMatrix:UpdateAllocationProgressHeader(bInstant)
@@ -694,6 +718,9 @@ function PrimalMatrix:OnNodeAllocationChanged(wndHandler, wndControl, idNode, nO
 		return
 	end
 
+	local tMouse = self.tWndRefs.wndMatrix:GetMouse()
+	self:OnGenerateTooltip(self.tWndRefs.wndMatrix, self.tWndRefs.wndMatrix, Tooltip.TooltipGenerateType_Default, tMouse.x, tMouse.y)
+	
 	self:CheckPendingState()
 	self:UpdateCurrencyHeader(false)
 	self:UpdateAllocationProgressHeader(false)

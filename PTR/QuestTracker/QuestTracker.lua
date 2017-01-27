@@ -1497,7 +1497,7 @@ function QuestTracker:ShowQuestRightClick(queQuest)
 	self.wndQuestRightClick:FindChild("RightClickAbandonConfirmBtn"):SetData(queQuest)
 	self.wndQuestRightClick:FindChild("RightClickShareQuestBtn"):Enable(queQuest:CanShare())
 	self.wndQuestRightClick:FindChild("RightClickAbandonBtn"):Enable(queQuest:CanAbandon())
-	self.wndQuestRightClick:FindChild("RightClickOpenLogBtn"):Enable(queQuest:IsInLog())
+	self.wndQuestRightClick:FindChild("RightClickOpenLogBtn"):Enable(not queQuest:ShouldHideFromQuestLog())
 
 	local nQuestId = queQuest:GetId()
 	local bAlreadyMinimized = nQuestId and self.tMinimized.tQuests[nQuestId]
