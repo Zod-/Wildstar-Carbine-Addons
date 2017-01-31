@@ -268,6 +268,7 @@ local ktContentTypeFilterString =
 	[GameLib.CodeEnumRewardRotationContentType.Expedition] = Apollo.GetString("MatchMaker_Shiphands"),
 	[GameLib.CodeEnumRewardRotationContentType.WorldBoss] = Apollo.GetString("MatchMaker_ContentFilterWorldBoss"),
 	[GameLib.CodeEnumRewardRotationContentType.PvP] = Apollo.GetString("CRB_Pvp"),
+	[GameLib.CodeEnumRewardRotationContentType.DungeonNormal] = Apollo.GetString("MatchMaker_ContentFilterRandomQueues"),
 }
 
 local keMasterTabs =
@@ -1843,24 +1844,28 @@ function MatchMaker:BuildRandomHeader(eMatchType, wndParent)
 	wndMultipleRewardsIcon:Show(false)
 	wndRewardIconContainer:Show(false)
 	if tRotationRewards and tRotationRewards.arRewards then
+		local nRewardCount = 0
 		for idx, tReward in pairs(tRotationRewards.arRewards) do
-			wndRewardIconContainer:Show(true)
-			self:BuildRewardContainer(wndRewardIconContainer, tReward)
-			local wndRewardIconEntry = wndRewardIconContainer:FindChild("RewardIconEntry")
-			wndRewardIconEntry:SetAnchorPoints(1,0,1,0)
-			wndRewardIconEntry:SetAnchorOffsets(-wndRewardIconContainer:GetWidth(),0,0,wndRewardIconContainer:GetHeight())
+			if not tReward.bAlreadyGranted then
+				wndRewardIconContainer:Show(true)
+				self:BuildRewardContainer(wndRewardIconContainer, tReward)
+				local wndRewardIconEntry = wndRewardIconContainer:FindChild("RewardIconEntry")
+				wndRewardIconEntry:SetAnchorPoints(1,0,1,0)
+				wndRewardIconEntry:SetAnchorOffsets(-wndRewardIconContainer:GetWidth(),0,0,wndRewardIconContainer:GetHeight())
 				
-			local wndRewardIcon = wndRewardIconEntry:FindChild("RewardIcon")
-			wndRewardIcon:SetAnchorPoints(0,0,1,1)
-			wndRewardIcon:SetAnchorOffsets(0,0,0,0)
+				local wndRewardIcon = wndRewardIconEntry:FindChild("RewardIcon")
+				wndRewardIcon:SetAnchorPoints(0,0,1,1)
+				wndRewardIcon:SetAnchorOffsets(0,0,0,0)
 				
-			local wndRewardIconMultiplier = wndRewardIconEntry:FindChild("RewardMultiplier")
-			wndRewardIconMultiplier:SetSprite("")
-			wndRewardIconMultiplier:SetAnchorPoints(0,1,1,1)
-			wndRewardIconMultiplier:SetAnchorOffsets(0,-15,0,-1)
+				local wndRewardIconMultiplier = wndRewardIconEntry:FindChild("RewardMultiplier")
+				wndRewardIconMultiplier:SetSprite("")
+				wndRewardIconMultiplier:SetAnchorPoints(0,1,1,1)
+				wndRewardIconMultiplier:SetAnchorOffsets(0,-15,0,-1)
 
-			if idx > 1 then
-				wndMultipleRewardsIcon:Show(true)
+				nRewardCount = nRewardCount + 1
+				if nRewardCount > 1 then
+					wndMultipleRewardsIcon:Show(true)
+				end
 			end
 		end
 		
@@ -2351,8 +2356,10 @@ function MatchMaker:SetMatchDetails(matchSelected)
 		if tRotationRewardInfo and tRotationRewardInfo.arRewards then
 			local nRotationRewardsHeight = 0
 			for idx, tReward in pairs(tRotationRewardInfo.arRewards) do
-				local wndEntry = self:BuildRewardContainer(wndRotationRewards, tReward, true)
-				nRotationRewardsHeight = nRotationRewardsHeight + wndEntry:GetHeight()
+				if not tReward.bAlreadyGranted then
+					local wndEntry = self:BuildRewardContainer(wndRotationRewards, tReward, true)
+					nRotationRewardsHeight = nRotationRewardsHeight + wndEntry:GetHeight()
+				end
 			end
 			
 			wndRotationRewards:Show(true)
@@ -2717,7 +2724,7 @@ function MatchMaker:CheckQueueEligibility()
 			end
 		end
 	else
-		bCanJoinAsGroup = self.tQueueOptions[keMasterTabs.PvP].bAsMercenary
+		bCanSoloQueue = self.tQueueOptions[keMasterTabs.PvP].bAsMercenary
 
 		if not bCanJoinAsGroup then
 			bCanJoinAsGroup = bCanQueueAsWarparty and not self.tQueueOptions[keMasterTabs.PvP].bAsMercenary

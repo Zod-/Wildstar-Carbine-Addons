@@ -996,6 +996,10 @@ function CraftingGrid:OnHitZoneMouseEnter(wndHandler, wndControl)
 end
 
 function CraftingGrid:OnHitZoneMouseExit(wndHandler, wndControl)
+	if not self.wndMain or not self.wndMain:IsValid() then
+		return
+	end
+
 	if wndHandler == wndControl then
 		for idx, wndCurr in pairs(self.wndMain:FindChild("AdditiveList"):GetChildren()) do
 			if wndCurr:FindChild("AdditiveHeaderBtn") then
