@@ -382,8 +382,8 @@ function CharacterSelection:OnLoadFromCharacter()
 		wndCreate:FindChild("TitleLvl50"):Show(true)
 		wndCreate:FindChild("DisabledBlocker"):Show(g_arCharacterInWorld ~= nil and g_arCharacterInWorld.nCharacterIndex ~= nil)
 		local numAvailable = nFreeLevel50sRemaining
-		if not numAvailable then
-			numAvailable = AccountItemLib.GetAccountCurrency(AccountItemLib.CodeEnumAccountCurrency.PromotionToken):GetAmount()
+		if numAvailable == 0 then
+			numAvailable = self.nCurrentPromotionTokens
 		end
 		wndCreate:FindChild("TokenCount"):SetText(PreGameLib.String_GetWeaselString(Apollo.GetString("AccountServices_NumAvailable"), numAvailable))
 	else
