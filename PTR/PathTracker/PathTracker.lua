@@ -556,7 +556,7 @@ end
 function PathTracker:BuildAll()
 	for idx, pepEpisode in ipairs(PlayerPathLib.GetEpisodes()) do
 		for idx, pmMission in ipairs(pepEpisode:GetMissions()) do
-			if not pmMission:IsComplete() then
+			if not pmMission:IsComplete() or pmMission:GetType() == PathMission.PathMissionType_Settler_Infrastructure then
 				self:BuildMission(pmMission)
 			end
 		end
@@ -633,7 +633,8 @@ function PathTracker:ResizeAll()
 			
 		elseif pmMission:GetType() == PathMission.PathMissionType_Settler_Infrastructure and pmMission:IsComplete() then
 			nCompleteMissionsCount = nCompleteMissionsCount + 1
-		
+			tDisplayedMissions[pmMission:GetId()] = self.bToggleOnGoingProjects
+			
 		elseif not pmMission:IsComplete() then
 			if (not self.bFilterLimit or nFilteredMissions < self.nMaxMissionLimit) and (not self.bFilterDistance or self:GetDistance(pmMission) < self.nMaxMissionDistance or pmMission:GetType() == PathMission.PathMissionType_Explorer_ExploreZone) then
 				nFilteredMissions = nFilteredMissions + 1
@@ -651,7 +652,7 @@ function PathTracker:ResizeAll()
 	end
 	
 	for idMission, wndMission in pairs(self.tMissionWndCache) do
-		wndMission:Show(tDisplayedMissions[idMission] ~= nil)
+		wndMission:Show(tDisplayedMissions[idMission])
 	end
 	
 	local bShouldShow = self.bShowPathMissions and (next(tDisplayedMissions) ~= nil or ePathType == PlayerPathLib.PlayerPathType_Scientist)
