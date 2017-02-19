@@ -30,8 +30,6 @@ local ktManneqinIds =
 	[Unit.CodeEnumGender.Female] = 56135,
 }
 
-local knWeaponModelId = 70573
-
 local keOverlayType =
 {
 	["None"] = 0,
@@ -95,6 +93,16 @@ local ktItemCategoryToCamera =
 	[108] = "Weapon_Launcher",
 }
 
+local ktItemCategoryToModelId =
+{
+	[8] = 72589,
+	[12] = 72593,
+	[16] = 72592,
+	[22] = 72590,
+	[24] = 72588,
+	[108] = 72591,
+}
+
 local ktClassToWeaponCamera =
 {
 	[GameLib.CodeEnumClass.Warrior] 		= "Weapon_Sword2H",
@@ -103,6 +111,16 @@ local ktClassToWeaponCamera =
 	[GameLib.CodeEnumClass.Esper] 			= "Weapon_Psyblade",
 	[GameLib.CodeEnumClass.Engineer] 		= "Weapon_Launcher",
 	[GameLib.CodeEnumClass.Medic] 			= "Weapon_Resonator",
+}
+
+local ktClassToWeaponModelId =
+{
+	[GameLib.CodeEnumClass.Warrior] 		= 72589,
+	[GameLib.CodeEnumClass.Spellslinger] 	= 72592,
+	[GameLib.CodeEnumClass.Stalker] 		= 72588,
+	[GameLib.CodeEnumClass.Esper] 			= 72590,
+	[GameLib.CodeEnumClass.Engineer] 		= 72591,
+	[GameLib.CodeEnumClass.Medic] 			= 72593,
 }
 
 local ktUnlockFailureStrings =
@@ -2014,10 +2032,10 @@ function Costumes:SetItemToWindow(wndCostume, itemDisplay)
 	
 	local eItemSlot = ktItemSlotToEquippedItems[itemDisplay:GetSlot()]
 	if eItemSlot == GameLib.CodeEnumItemSlots.Weapon then
-		strCamera = ktItemCategoryToCamera[itemDisplay:GetItemCategory()]
-		idModel = knWeaponModelId
+		strCamera = "Paperdoll"
+		idModel = ktItemCategoryToModelId[itemDisplay:GetItemCategory()]
 		
-		if not strCamera then
+		if not idModel then
 			local arRequirementInfo = itemDisplay:GetRequiredClass()
 			local eRequiredClass = nil
 			if #arRequirementInfo > 1 or #arRequirementInfo == 0 then
@@ -2026,7 +2044,7 @@ function Costumes:SetItemToWindow(wndCostume, itemDisplay)
 				eRequiredClass = arRequirementInfo[1].idClassReq
 			end
 			
-			strCamera = ktClassToWeaponCamera[eRequiredClass]
+			idModel = ktClassToWeaponModelId[eRequiredClass]
 		end
 	else
 		strCamera = ktItemSlotToCamera[eItemSlot]
