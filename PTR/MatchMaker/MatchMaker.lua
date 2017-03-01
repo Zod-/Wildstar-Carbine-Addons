@@ -165,6 +165,13 @@ local ktPvEPrimeLevelScaledTypes =
 	[MatchMakingLib.MatchType.PrimeLevelAdventure] = MatchMakingLib.MatchType.ScaledPrimeLevelAdventure,
 }
 
+local ktMatchTypeMap =
+{
+	[MatchMakingLib.MatchType.ScaledPrimeLevelDungeon]		= MatchMakingLib.MatchType.Dungeon,
+	[MatchMakingLib.MatchType.ScaledPrimeLevelAdventure]	= MatchMakingLib.MatchType.Adventure,
+	[MatchMakingLib.MatchType.ScaledPrimeLevelExpedition]	= MatchMakingLib.MatchType.Shiphand,
+}
+
 -- Numbers indicate sort order for tabs
 local ktPvPTypes = 
 {
@@ -2707,27 +2714,19 @@ function MatchMaker:CheckQueueEligibility()
 	local eQueueResultSolo = MatchMakingLib.MatchQueueResult.Success
 	local eQueueResultGroup = MatchMakingLib.MatchQueueResult.Success
 	
-	if eType ~= MatchMakingLib.MatchType.Warplot then
-		for idx, match in ipairs(self.arMatchesToQueue) do
-			if bCanSoloQueue then
-				eQueueResultSolo = match:CanQueue()
-				if eQueueResultSolo ~= MatchMakingLib.MatchQueueResult.Success then
-					bCanSoloQueue = false
-				end
-			end
-			
-			if bCanJoinAsGroup then
-				eQueueResultGroup = match:CanQueueAsGroup()
-				if eQueueResultGroup ~= MatchMakingLib.MatchQueueResult.Success then
-					bCanJoinAsGroup = false
-				end
+	for idx, match in ipairs(self.arMatchesToQueue) do
+		if bCanSoloQueue then
+			eQueueResultSolo = match:CanQueue()
+			if eQueueResultSolo ~= MatchMakingLib.MatchQueueResult.Success then
+				bCanSoloQueue = false
 			end
 		end
-	else
-		bCanSoloQueue = self.tQueueOptions[keMasterTabs.PvP].bAsMercenary
-
-		if not bCanJoinAsGroup then
-			bCanJoinAsGroup = bCanQueueAsWarparty and not self.tQueueOptions[keMasterTabs.PvP].bAsMercenary
+		
+		if bCanJoinAsGroup then
+			eQueueResultGroup = match:CanQueueAsGroup()
+			if eQueueResultGroup ~= MatchMakingLib.MatchQueueResult.Success then
+				bCanJoinAsGroup = false
+			end
 		end
 	end
 	
@@ -2801,16 +2800,22 @@ function MatchMaker:ValidateQueueButtons()
 		eMatchType = self.ePvPTabSelected
 	end
 		
-	local tMatchesQueued = MatchMakingLib.GetQueuedEntries(eMatchType)
-	if ktNormalToRated[eMatchType] and (not tMatchesQueued or not tMatchesQueued[1]) then
-		tMatchesQueued = MatchMakingLib.GetQueuedEntries(ktNormalToRated[eMatchType])
-	end
-	
+	local tMatchesQueued = MatchMakingLib.GetQueuedEntries()
+	local bFoundQueueMatch = false	
 	if MatchingGameLib.GetQueueEntry() and not MatchingGameLib.IsFinished() then
 		self:EnterStateInMatchingGame()
-	elseif tMatchesQueued and tMatchesQueued[1] and tMatchesQueued[1]:IsQueued() then
-		self:EnterStateInQueue(eMatchType)
-	else
+	elseif tMatchesQueued then 
+		for idx, tMatchQueued in pairs(tMatchesQueued) do 
+			local queuedMatchType = tMatchQueued:GetInfo().eMatchType
+			if tMatchQueued:IsQueued() and (queuedMatchType == eMatchType or ktMatchTypeMap[queuedMatchType] == eMatchType or ktRatedToNormal[queuedMatchType] == eMatchType or ktNormalToRated[queuedMatchType] == eMatchType) then
+				self:EnterStateInQueue(eMatchType)
+				bFoundQueueMatch = true
+				break
+			end
+		end
+	end	
+		
+	if not bFoundQueueMatch then
 		self:EnterStateDefault()
 	end
 end

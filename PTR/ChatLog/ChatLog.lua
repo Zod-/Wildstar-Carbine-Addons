@@ -749,6 +749,10 @@ function ChatLog:OnChannelUpdate_Loot(eType, tEventArgs)
 			strResult = String_GetWeaselString(Apollo.GetString("CombatLog_LootReceived"), tEventArgs.monNew:GetMoneyString())
 		end
 		
+		if tEventArgs.monEssenceBonus and tEventArgs.monEssenceBonus:GetAmount() > 0 then
+			strResult = strResult .. " " .. String_GetWeaselString(Apollo.GetString("ChatLog_BonusEssence"), tEventArgs.monEssenceBonus:GetMoneyString())
+		end
+		
 	elseif eType == GameLib.ChannelUpdateLootType.Item and tEventArgs.itemNew then
 
 		local strItem = tEventArgs.itemNew:GetChatLinkString()
