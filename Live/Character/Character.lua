@@ -795,6 +795,12 @@ function Character:DrawAttributes(wndUpdate)
 					strTooltip 	= String_GetWeaselString(Apollo.GetString("Character_VigorTooltip"), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.RatingVigor).fValue, 2, true), Apollo.FormatNumber(unitPlayer:GetVigor().nAmount - (unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.BaseVigor).fValue * 100), 2, true), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.BaseVigor).fValue * 100, 2, true))
 				},
 				{
+					strName 	= Item.GetPropertyName(Unit.CodeEnumProperties.BaseTenacity),
+					strValue 	= String_GetWeaselString(Apollo.GetString("Character_PercentAppendLabel"), Apollo.FormatNumber(unitPlayer:GetTenacity().nAmount, 2, true)),
+					eState		= unitPlayer:GetTenacity().eDRState,
+					strTooltip 	= String_GetWeaselString(Apollo.GetString("Character_TenacityTooltip"), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.RatingTenacity).fValue, 2, true), Apollo.FormatNumber(unitPlayer:GetTenacity().nAmount - (unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.BaseTenacity).fValue * 100), 2, true), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.BaseTenacity).fValue * 100, 2, true))
+				},
+				{
 					strName 	= Item.GetPropertyName(Unit.CodeEnumProperties.IgnoreArmorBase),
 					strValue 	= String_GetWeaselString(Apollo.GetString("Character_PercentAppendLabel"), Apollo.FormatNumber(unitPlayer:GetArmorPierce().nAmount, 2, true)),
 					eState		= unitPlayer:GetArmorPierce().eDRState,
@@ -823,6 +829,12 @@ function Character:DrawAttributes(wndUpdate)
 					strValue 	= String_GetWeaselString(Apollo.GetString("Character_PercentAppendLabel"), Apollo.FormatNumber(unitPlayer:GetMagicMitigation().nAmount, 2, true)),
 					eState		= unitPlayer:GetMagicMitigation().eDRState,
 					strTooltip 	= String_GetWeaselString(Apollo.GetString("Character_MagicMitTooltip"), Apollo.FormatNumber(unitPlayer:GetMagicMitigationRating() + unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.Armor).fValue, 2, true), Apollo.FormatNumber(unitPlayer:GetMagicMitigation().nAmount - ((unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.DamageMitigationPctOffsetMagic).fValue + unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.DamageMitigationPctOffset).fValue) * 100), 2, true), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.ResistMagic).fValue, 2, true), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.Armor).fValue, 2, true), Apollo.FormatNumber((unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.DamageMitigationPctOffsetMagic).fValue + unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.DamageMitigationPctOffset).fValue) * 100, 2, true))
+				},
+				{
+					strName 	= Item.GetPropertyName(Unit.CodeEnumProperties.BaseToughness),
+					strValue 	= String_GetWeaselString(Apollo.GetString("Character_PercentAppendLabel"), Apollo.FormatNumber(unitPlayer:GetToughness().nAmount, 2, true)),
+					eState		= unitPlayer:GetToughness().eDRState,
+					strTooltip 	= String_GetWeaselString(Apollo.GetString("Character_ToughnessTooltip"), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.RatingToughness).fValue, 2, true), Apollo.FormatNumber(unitPlayer:GetToughness().nAmount - (unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.BaseToughness).fValue  * 100), 2, true), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.BaseToughness).fValue * 100, 2, true))
 				},
 				{
 					strName 	= Item.GetPropertyName(Unit.CodeEnumProperties.BaseGlanceAmount),
@@ -936,6 +948,12 @@ function Character:DrawAttributes(wndUpdate)
 					strValue 	= String_GetWeaselString(Apollo.GetString("Character_PercentAppendLabel"), Apollo.FormatNumber(unitPlayer:GetIntensity().nAmount, 2, true)),
 					eState		= unitPlayer:GetIntensity().eDRState,
 					strTooltip 	= String_GetWeaselString(Apollo.GetString("Character_IntensityTooltip"), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.RatingIntensity).fValue, 2, true), Apollo.FormatNumber(unitPlayer:GetIntensity().nAmount - (unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.BaseIntensity).fValue * 100), 2, true), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.BaseIntensity).fValue * 100, 2, true))
+				},
+				{
+					strName 	= Item.GetPropertyName(Unit.CodeEnumProperties.BaseHope),
+					strValue 	= String_GetWeaselString(Apollo.GetString("Character_PercentAppendLabel"), Apollo.FormatNumber(unitPlayer:GetHope().nAmount, 2, true)),
+					eState		= unitPlayer:GetHope().eDRState,
+					strTooltip 	= String_GetWeaselString(Apollo.GetString("Character_HopeTooltip"), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.RatingHope).fValue, 2, true), Apollo.FormatNumber(unitPlayer:GetHope().nAmount - (unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.BaseHope).fValue * 100), 2, true), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.BaseHope).fValue * 100, 2, true))
 				},
 			},
 		},
@@ -1084,13 +1102,21 @@ function Character:UpdateAttributes(wndUpdate)
 	local wndDefensePowerRatingIcon = wndUpdate:FindChild("icoDefensePower")
 	local wndMaxHealth = wndUpdate:FindChild("MaxHealth")
 	local wndMaxShields = wndUpdate:FindChild("MaxShields")
-	local wndCurScore = wndUpdate:FindChild("CurrentScore")
+	local wndCurScore = wndUpdate:FindChild("CurrentItemScore")
+	local wndCurHeroism = wndUpdate:FindChild("CurrentHeroismScore")
 
 	wndAssaultPowerRating:SetText(Apollo.FormatNumber(unitPlayer:GetAssaultPower(), 0, true))
 	wndDefensePowerRating:SetText(Apollo.FormatNumber(unitPlayer:GetSupportPower(), 0, true))
 	wndMaxHealth:SetText(Apollo.FormatNumber(unitPlayer:GetMaxHealth(), 0, true))
 	wndMaxShields:SetText(Apollo.FormatNumber(unitPlayer:GetShieldCapacityMax(), 0, true))
 	wndCurScore:SetText(Apollo.FormatNumber(unitPlayer and unitPlayer:GetEffectiveItemLevel() or 0, 0, true))
+	wndCurHeroism:SetText(Apollo.FormatNumber(unitPlayer and unitPlayer:GetHeroism() or 0, 0, true))
+	if unitPlayer and unitPlayer:IsHeroismUnlocked() then
+		wndUpdate:FindChild("icoHeroismLevel"):SetTooltip(Apollo.GetString("Character_HeroismTooltip"))
+	else
+		wndUpdate:FindChild("icoHeroismLevel"):SetTooltip(Apollo.GetString("Character_HeroismTooltipLocked"))
+	end
+	
 	wndAssaultPowerRatingIcon:SetTooltip(String_GetWeaselString(Apollo.GetString("Character_AssaultTooltip"), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.AssaultRating).fValue, 2, true)))
 	wndDefensePowerRatingIcon:SetTooltip(String_GetWeaselString(Apollo.GetString("Character_SupportTooltip"), Apollo.FormatNumber(unitPlayer:GetUnitProperty(Unit.CodeEnumProperties.SupportRating).fValue, 2, true)))
 end
@@ -1287,7 +1313,11 @@ function Character:DrawNames(wndUpdate)
 			local bMentoring = unitPlayer:IsMentoring()
 
 			nDisplayedLevel = tStats.nEffectiveLevel
-			strEffectiveLevelStatus = bMentoring and Apollo.GetString("CRB_Mentoring") or Apollo.GetString("MiniMap_Rallied")
+			if bMentoring then
+				strEffectiveLevelStatus = String_GetWeaselString(Apollo.GetString("CRB_MentoringFromLevel"), tStats.nLevel)
+			else
+				strEffectiveLevelStatus = String_GetWeaselString(Apollo.GetString("CRB_RalliedFromLevel"), tStats.nLevel)
+			end
 		end
 
 		wndUpdate:FindChild("CharDataLevelBig"):SetText(nDisplayedLevel)

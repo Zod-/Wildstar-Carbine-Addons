@@ -743,15 +743,14 @@ function ChatLog:OnChannelUpdate_Loot(eType, tEventArgs)
 	
 	if eType == GameLib.ChannelUpdateLootType.Currency and tEventArgs.monNew then
 		
-		if tEventArgs.monNew:GetAccountCurrencyType() == AccountItemLib.CodeEnumAccountCurrency.Omnibits and tOmniBitInfo then
-			local tOmniBitInfo = GameLib.GetOmnibitsBonusInfo()
-			if tOmniBitInfo then
-				strResult = String_GetWeaselString(Apollo.GetString("ChatLog_OmniBits_Gained"), tEventArgs.nOmnibitsGained, tEventArgs.nBonusAmount, tOmniBitInfo.nWeeklyBonusEarned, tOmniBitInfo.nWeeklyBonusTotal)
-			else
-				strResult = String_GetWeaselString(Apollo.GetString("CombatLog_LootReceived"), tEventArgs.monNew:GetMoneyString())
-			end
+		if tEventArgs.monSignatureBonus:GetAmount() > 0 then
+			strResult = String_GetWeaselString(Apollo.GetString("ChatLog_CurrencyGainedWithSignature"), tEventArgs.monNew:GetMoneyString(), tEventArgs.monSignatureBonus:GetMoneyString())
 		else
 			strResult = String_GetWeaselString(Apollo.GetString("CombatLog_LootReceived"), tEventArgs.monNew:GetMoneyString())
+		end
+		
+		if tEventArgs.monEssenceBonus and tEventArgs.monEssenceBonus:GetAmount() > 0 then
+			strResult = strResult .. " " .. String_GetWeaselString(Apollo.GetString("ChatLog_BonusEssence"), tEventArgs.monEssenceBonus:GetMoneyString())
 		end
 		
 	elseif eType == GameLib.ChannelUpdateLootType.Item and tEventArgs.itemNew then
@@ -760,7 +759,12 @@ function ChatLog:OnChannelUpdate_Loot(eType, tEventArgs)
 		if tEventArgs.nCount > 1 then
 			strItem = String_GetWeaselString(Apollo.GetString("CombatLog_MultiItem"), tEventArgs.nCount, strItem)
 		end
-		strResult = String_GetWeaselString(Apollo.GetString("CombatLog_LootReceived"), strItem)
+		
+		if tEventArgs.unitLooter then
+			strResult = String_GetWeaselString(Apollo.GetString("CombatLog_PartyMemberLootReceived"), tEventArgs.unitLooter:GetName(), strItem)
+		else
+			strResult = String_GetWeaselString(Apollo.GetString("CombatLog_LootReceived"), strItem)
+		end
 
 	elseif eType == GameLib.ChannelUpdateLootType.ItemDestroy and tEventArgs.itemDestroyed then
 

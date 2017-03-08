@@ -18,7 +18,7 @@ local knDataWindowPadding = 8
 local kItemTooltipWindowWidth = 300
 local kstrTab = "    "
 local kUIBody = "ff39b5d4"
-local kUITeal = "ff53aa7f"
+local kUITeal = "ff31fcf6"
 local kUIRed = "Reddish" -- "ffab472f" Sat +50
 local kUIGreen = "ff42da00" -- "ff55ab2f" Sat +50
 local kUIYellow = kUIBody
@@ -288,6 +288,27 @@ local ktRankToString = {
 	[Unit.CodeEnumRank.Standard] = {strLocText = Apollo.GetString("CreatureElitenessTitle_Standard")},
 	[Unit.CodeEnumRank.Minion] = {strLocText = Apollo.GetString("CreatureRankTitle_Minion")},
 	[Unit.CodeEnumRank.Fodder] = {strLocText = Apollo.GetString("TargetFrame_Fodder")},
+}
+
+local karPrimeTierItemQualityStrings =
+{
+	[Item.CodeEnumItemQuality.Inferior] 		= "ItemTooltip_PrimeTier",
+	[Item.CodeEnumItemQuality.Average] 			= "ItemTooltip_PrimeTier",
+	[Item.CodeEnumItemQuality.Good] 			= "ItemTooltip_PrimeTier",
+	[Item.CodeEnumItemQuality.Excellent] 		= "ItemTooltip_PrimeTier",
+	[Item.CodeEnumItemQuality.Superb] 			= "ItemTooltip_PrimeTierEldan",
+	[Item.CodeEnumItemQuality.Legendary] 		= "ItemTooltip_PrimeTierAncientEldan",
+	[Item.CodeEnumItemQuality.Artifact]		 	= "ItemTooltip_PrimeTierAncientEldan",
+}
+local karPrimeItemQualityStrings =
+{
+	[Item.CodeEnumItemQuality.Inferior] 		= "ItemTooltip_Prime",
+	[Item.CodeEnumItemQuality.Average] 			= "ItemTooltip_Prime",
+	[Item.CodeEnumItemQuality.Good] 			= "ItemTooltip_Prime",
+	[Item.CodeEnumItemQuality.Excellent] 		= "ItemTooltip_Prime",
+	[Item.CodeEnumItemQuality.Superb] 			= "ItemTooltip_PrimeEldan",
+	[Item.CodeEnumItemQuality.Legendary] 		= "ItemTooltip_PrimeAncientEldan",
+	[Item.CodeEnumItemQuality.Artifact]		 	= "ItemTooltip_PrimeAncientEldan",
 }
 
 local ktRiskToIcon = {
@@ -625,9 +646,13 @@ function ToolTips:UnitTooltipGen(wndContainer, unitSource, strProp)
 		wndBreakdownString:Show(true)
 
 	elseif karNPCDispositionUnitTypes[strUnitType] then
-		bShowUpsellIcon = unitSource:IsInstanceLockbox();
+		bShowUpsellIcon = unitSource:IsInstanceLockbox() or unitSource:IsWorldLockbox();
 		if bShowUpsellIcon then -- If this is an Last Chance chest, display description for opening requirements
-			wndBreakdownString:SetText(String_GetWeaselString(Apollo.GetString("InstanceLockbox_RequiresKey")))
+			if unitSource:IsWorldLockbox() then
+				wndBreakdownString:SetText(String_GetWeaselString(Apollo.GetString("WorldLockbox_RequiresKey")))
+			else
+				wndBreakdownString:SetText(String_GetWeaselString(Apollo.GetString("InstanceLockbox_RequiresKey")))
+			end
 		else -- else display rank
 			wndBreakdownString:SetText(ktRankDescriptions[unitSource:GetRank()] or "")
 		end
@@ -983,6 +1008,7 @@ local function ItemTooltipHeaderHelper(wndParent, tItemInfo, itemSource, wndTool
 
 	local eRuneType = tItemInfo.tRuneInfo and tItemInfo.tRuneInfo.eType or 0
 	local strName = eRuneType > 0 and string.format("%s (%s)", itemSource:GetItemTypeName(), String_GetWeaselString(Apollo.GetString("Tooltips_RuneSlot"), karSigilTypeToString[eRuneType])) or itemSource:GetItemTypeName()
+	
 	wnd:FindChild("ItemTooltip_Header_Types"):SetText(strName)
 	wnd:FindChild("ItemTooltip_Header_Name"):SetAML("<P Font=\"CRB_HeaderSmall\" TextColor=\""..karEvalColors[tItemInfo.eQuality].."\">"..tItemInfo.strName.."</P>")
 
@@ -1010,7 +1036,7 @@ local function ItemTooltipBasicStatsHelper(wndParent, tItemInfo, itemSource)
 	                        (tItemInfo.tStack and tItemInfo.tStack.nMaxCount ~= 1) or
 	                        (tItemInfo.bPvpGear or tItemInfo.bPvpOnlyRune or tItemInfo.bPveOnlyRune) or
 	                        (tItemInfo.nInstalledMinimumItemLevel or tItemInfo.nPowerCoreMaximumLevel or tItemInfo.nCraftedMultiplier) or
-							tItemInfo.tBind.bSoulbound or tItemInfo.tBind.bOnEquip or tItemInfo.tBind.bOnPickup or itemSource:IsSalvagedLootSoulbound() or 
+							tItemInfo.tBind.bSoulbound or tItemInfo.tBind.bNoTrade or tItemInfo.tBind.bOnEquip or tItemInfo.tBind.bOnPickup or itemSource:IsSalvagedLootSoulbound() or 
 							tItemInfo.tUnique or not itemSource:IsAlwaysTradeable() or itemSource:IsAccountTradeable()
 	
 	if not bNeedLeftColumn then
@@ -1034,12 +1060,21 @@ local function ItemTooltipBasicStatsHelper(wndParent, tItemInfo, itemSource)
 			ItemTooltipBasicStatsHelperWindowBuilder(wndLeftColumn, kUIBody, String_GetWeaselString(Apollo.GetString("Tooltips_ItemLevel"), nItemLevel ))
 		end
 		
+		if tItemInfo.nPrimeTier and tItemInfo.nPrimeTier > 0 then
+			local strPrimeTier = string.format("%s", String_GetWeaselString(Apollo.GetString(karPrimeTierItemQualityStrings[tItemInfo.eQuality]), tItemInfo.nPrimeTier))
+			ItemTooltipBasicStatsHelperWindowBuilder(wndLeftColumn, kUIGreen, strPrimeTier )
+		elseif tItemInfo.bScalable then
+			ItemTooltipBasicStatsHelperWindowBuilder(wndLeftColumn, kUIGreen, String_GetWeaselString(Apollo.GetString(karPrimeItemQualityStrings[tItemInfo.eQuality])))
+		end
+		
 		-- Binding Messages
 		local strBind = ""
 		if itemSource:IsAccountTradeable() then
 			strBind = Apollo.GetString("CRB_AccountBoundNotice")
 		elseif tItemInfo.tBind and tItemInfo.tBind.bSoulbound then
 			strBind = Apollo.GetString("CRB_Soulbound")
+		elseif tItemInfo.tBind and tItemInfo.tBind.bNoTrade then
+			strBind = Apollo.GetString("CRB_NoTrade")
 		elseif tItemInfo.tBind and tItemInfo.tBind.bOnPickup then
 			strBind = Apollo.GetString("CRB_Bind_on_pickup")
 		elseif itemSource:IsSalvagedLootSoulbound() then
@@ -1340,7 +1375,7 @@ local function ItemTooltipInnatePropHelper(wndParent, tSortedInnatePropList, bUs
 			end
 		end
 
-		wnd:SetAML(string.format("<T Font=\"%s\" TextColor=\"%s\">%s</T>", kUIHugeFontSize, kUITeal, strLine))
+		wnd:SetAML(string.format("<T Font=\"%s\" TextColor=\"%s\">%s</T>", "CRB_Header11", kUITeal, strLine))
 		wnd:SetHeightToContentHeight()
 	end
 end

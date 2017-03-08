@@ -625,6 +625,7 @@ function ZoneMap:OnDocumentReady()
 	Apollo.RegisterEventHandler("SubZoneChanged", 						"OnSubZoneChanged", self)
 	Apollo.RegisterEventHandler("ZoneMapWindowModeChange",				"OnMouseScroll", self)
 	Apollo.RegisterEventHandler("ZoneMap_OpenMapToQuest",				"OnZoneMap_OpenMapToQuest", self)
+	Apollo.RegisterEventHandler("ZoneMap_OpenMapToPublicEvent",			"OnZoneMap_OpenMapToPublicEvent", self)
 	Apollo.RegisterEventHandler("ChangeWorld", 							"OnWorldChanged", self)
 	Apollo.RegisterEventHandler("CityDirectionsList", 					"OnCityDirectionsList", self)
 	Apollo.RegisterEventHandler("CityDirectionMarked",					"OnCityDirectionMarked", self)
@@ -3135,6 +3136,45 @@ function ZoneMap:PublicEventEntryMouseButtonDown( wndHandler, wndControl, eMouse
 
 	self:ToggleActiveRegion(wndControl:GetData())
 end
+
+function ZoneMap:OnZoneMap_OpenMapToPublicEvent(peEvent)
+	if not self.wndMain or not self.wndMain:IsValid() then
+		return
+	end
+	
+	if not peEvent then
+		return
+	end
+	
+	local nZoneId = peEvent:GetMapZone()
+
+	-- Open the zone map first if we have the zone ID
+	if nZoneId then
+		self:HelperGoToMap(nZoneId)
+	end
+	
+	-- Check for location information and ping the location of the public event.
+	local tLocations = peEvent:GetLocations()
+	
+	if tLocations[1] then
+		local tInfo =
+		{
+			strIcon 	= "sprMM_QuestZonePulse",
+			crObject 	= CColor.new(1, 1, 1, 1),
+			strIconEdge = "",
+			crEdge 		= CColor.new(1, 1, 1, 1),
+			fRadius 	= 1.0,
+		}
+
+		if self.oShownLocObject then
+			self.wndZoneMap:RemoveObject(self.oShownLocObject)
+			self.oShownLocObject = nil
+		end
+		self.oShownLocObject = self.wndZoneMap:AddObject(self.eObjectTypeLocation, tLocations[1], "", tInfo, {bNeverShowOnEdge = true})
+	end	
+end
+
+
 
 ---------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------

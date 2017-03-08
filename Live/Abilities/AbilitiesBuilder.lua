@@ -524,8 +524,8 @@ function Abilities:DrawALockedSpell(tHighestTier, nPlayerLevel)
 	-- Can assume not Active
 	local strSubText = ""
 	local nAbilityLevelReq = tHighestTier.nLevelReq or 0
-	if tHighestTier.bAMPUnlocked then
-		strSubText = Apollo.GetString("AbilityBuilder_AMPUnlock")
+	if tHighestTier.bPrereqLocked then
+		strSubText = tHighestTier.strPrereqFailure
 	elseif nAbilityLevelReq > (nPlayerLevel or 0) then
 		strSubText = String_GetWeaselString(Apollo.GetString("AbilityBuilder_LevelUnlock"), nAbilityLevelReq)
 	else
@@ -563,7 +563,7 @@ function Abilities:DrawATiersSpell(tBaseAbility, tHighestTier, nPlayerLevel, nAb
 	wndSpellbookProgPiecesContainer:DestroyChildren()
 	local nStart = 0
 	for idx, tBtnTier in pairs(tBaseAbility.tTiers or {}) do
-		local bLevelReq = nPlayerLevel >= tBtnTier.nLevelReq
+		local tRequirements = AbilityBook.CheckSpellActivateRequirements(tBaseAbility.nId, idx)
 		local bPointsReq = tBtnTier.bIsActive or nAbilityPoints > 0
 		local strFormName = (idx == 1) and "SpellbookProgPieceFirst" or (idx == 5) and "SpellbookProgPieceBig" or (idx == 9 and "SpellbookProgPieceBigEnd") or "SpellbookProgPiece"
 		local wndProgPiece = Apollo.LoadForm(self.xmlDoc, strFormName, wndSpellbookProgPiecesContainer, self)
@@ -573,12 +573,16 @@ function Abilities:DrawATiersSpell(tBaseAbility, tHighestTier, nPlayerLevel, nAb
 		local wndProgPieceBtn = wndProgPiece:FindChild("SpellbookProgPieceBtn")
 		wndProgPieceBtn:SetData(tBtnTier)
 		wndProgPieceBtn:SetCheck(tBtnTier.bIsActive)
-		wndProgPieceBtn:Enable(bLevelReq and bPointsReq)
+		wndProgPieceBtn:Enable(tRequirements.bLevelReq and tRequirements.bTierLevelReq and tRequirements.bPrereq and bPointsReq)
 		wndProgPieceBtn:SetText(idx == 1 and Apollo.GetString("Tooltips_Base") or "")
 
 		-- Tooltip is on parent and not the button as it may disable
-		if not bLevelReq then
+		if not tRequirements.bLevelReq then
+			wndProgPiece:SetTooltip(Apollo.GetString("AbilityBuilder_LevelUnlock"))
+		elseif not tRequirements.bTierLevelReq then
 			wndProgPiece:SetTooltip(String_GetWeaselString(Apollo.GetString("AbilityBuilder_TierUnlockLevel"), tBtnTier.nLevelReq))
+		elseif not tRequirements.bPrereq then
+			wndProgPiece:SetTooltip(tRequirements.strPrereqFailure)
 		elseif not bPointsReq then
 			wndProgPiece:SetTooltip(Apollo.GetString("AbilityBuilder_OutOfPoints"))
 		end

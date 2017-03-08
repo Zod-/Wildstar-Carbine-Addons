@@ -548,6 +548,7 @@ function Character:OnLoad()
 	self.wndSubscriptionExpiredAlert = self.wndAlerts:FindChild("SubscriptionExpiredAlert")
 	self.wndCriticalStateAlert = self.wndAlerts:FindChild("CriticalStateAlert")
 	self.wndPromotionTokenConfirmAlert = self.wndAlerts:FindChild("PromotionTokenConfirmAlert")
+	self.wndFreeLevel50ConfirmAlert = self.wndAlerts:FindChild("Free50ConfirmAlert")
 
 
 	self.wndCreateFrame:Show(false)
@@ -1016,7 +1017,11 @@ function Character:OnEnterBtn(wndHandler, wndControl)
 				if tCreationResults and tCreationResults.arEnabledIds and tCreationResults.arEnabledIds[1] then
 					if self.eTutorialLevel == PreGameLib.CodeEnumCharacterCreationStart.Level50 then
 						-- show confirmation alert
-						self:OnPromotionTokenConfirmAlert()
+						if CharacterScreenLib.GetFreeLevel50sRemaining() > 0 then
+							self:OnFreeLevel50ConfirmAlert()
+						else
+							self:OnPromotionTokenConfirmAlert()
+						end
 						return
 					end
 					
@@ -1100,6 +1105,17 @@ function Character:OnPromotionTokenConfirmAlert()
 	self.wndPromotionTokenConfirmAlert:Invoke()
 end
 
+function Character:OnFreeLevel50ConfirmAlert()
+	if not self.wndFreeLevel50ConfirmAlert then
+		return
+	end
+	
+	local strBody = PreGameLib.String_GetWeaselString(Apollo.GetString("Pregame_ConfirmFree50"), CharacterScreenLib.GetFreeLevel50sRemaining() - 1)
+	self.wndFreeLevel50ConfirmAlert:FindChild("Body"):SetText(strBody)
+	
+	self.wndFreeLevel50ConfirmAlert:Invoke()
+end
+
 function Character:OnConfirmPromotionTokenCost()
 	local tCreation = self.arCharacterCreateOptions[self.characterCreateIndex]
 	local tCreationResults = CharacterScreenLib.GetCharacterCreationIdsByValues(self.eTutorialLevel, tCreation.factionId, tCreation.classId, tCreation.raceId, tCreation.genderId)
@@ -1109,6 +1125,17 @@ end
 
 function Character:OnCancelPromotionTokenCost()
 	self.wndPromotionTokenConfirmAlert:Close()
+end
+
+function Character:OnConfirmFreeLevel50( wndHandler, wndControl, eMouseButton )
+	local tCreation = self.arCharacterCreateOptions[self.characterCreateIndex]
+	local tCreationResults = CharacterScreenLib.GetCharacterCreationIdsByValues(self.eTutorialLevel, tCreation.factionId, tCreation.classId, tCreation.raceId, tCreation.genderId)
+	local nCharacterCreateId = tCreationResults.arEnabledIds[1]
+	CharacterScreenLib.CreateCharacter(self.strName, nCharacterCreateId, g_arActors.primary, self.ePath)
+end
+
+function Character:OnCancelFreeLevel50( wndHandler, wndControl, eMouseButton )
+	self.wndFreeLevel50ConfirmAlert:Close()
 end
 
 ---------------------------------------------------------------------------------------------------
