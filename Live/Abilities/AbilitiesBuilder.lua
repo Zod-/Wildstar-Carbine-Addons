@@ -99,21 +99,18 @@ function Abilities:OnPathAbilityUpdated(nPathId)
 end
 
 function Abilities:OnInterfaceMenuListHasLoaded()
-	if not self.bLoadedToInterfaceMenuList then
-		local unitPlayer = GameLib.GetPlayerUnit()
-		if unitPlayer == nil then
-			return
-		end
-		
-		self:AddToInterfaceMenuList(unitPlayer:GetLevel())
+	local unitPlayer = GameLib.GetPlayerUnit()
+	if unitPlayer == nil then
+		return
 	end
+	
+	self:AddToInterfaceMenuList(unitPlayer:GetLevel())
 end
 
 function Abilities:AddToInterfaceMenuList(nLevel)
 	if nLevel >= self.knLevelUpUnlock then
 		local tData = {"ToggleAbilitiesWindow", "LimitedActionSetBuilder", "Icon_Windows32_UI_CRB_InterfaceMenu_Abilities"}
 		Event_FireGenericEvent("InterfaceMenuList_NewAddOn", Apollo.GetString("InterfaceMenu_AbilityBuilder"), tData)
-		self.bLoadedToInterfaceMenuList = true
 
 		self:UpdateInterfaceMenuAlerts()
 	end
@@ -215,14 +212,12 @@ function Abilities:BuildWindow()
 end
 
 function Abilities:OnCharacterCreated()
-	if not self.bLoadedToInterfaceMenuList then
-		local unitPlayer = GameLib.GetPlayerUnit()
-		if unitPlayer == nil then
-			return
-		end
-		
-		self:AddToInterfaceMenuList(unitPlayer:GetLevel())
+	local unitPlayer = GameLib.GetPlayerUnit()
+	if unitPlayer == nil then
+		return
 	end
+	
+	self:AddToInterfaceMenuList(unitPlayer:GetLevel())
 	self:RedrawFromScratch()
 end
 
@@ -943,9 +938,7 @@ function Abilities:UpdateKeyBindings()
 end
 
 function Abilities:OnPlayerLevelChange(nCurrLevel, nNewAttributePoints, nNewAbillityPoints)
-	if not self.bLoadedToInterfaceMenuList then
-		self:AddToInterfaceMenuList(nCurrLevel)
-	end
+	self:AddToInterfaceMenuList(nCurrLevel)
 end
 
 ---------------------------------------------------------------------------------------------------

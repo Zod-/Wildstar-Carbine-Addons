@@ -2694,7 +2694,7 @@ function MatchMaker:CheckQueueEligibility()
 	
 	local bValidRoleSelection = true
 	if not bSoloOnly and eType ~= MatchMakingLib.MatchType.Arena then
-		bValidRoleSelection = self.tQueueOptions[eMasterTab].arRoles and #self.tQueueOptions[eMasterTab].arRoles > 0
+		bValidRoleSelection = self.tQueueOptions[eMasterTab].arRoles and next(self.tQueueOptions[eMasterTab].arRoles) ~= nil
 	end
 	
 	local nWarpartyTeamSize = 0
