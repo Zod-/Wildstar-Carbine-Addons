@@ -1,4 +1,8 @@
 <Addon Name="MatchMaker" APIVersion="1">
+    <Script Name="ConfirmRole.lua"/>
+    <Form Name="ConfirmRole.xml"/>
+    <Script Name="Duel.lua"/>
+    <Form Name="Duel.xml"/>
     <Script Name="MatchMaker.lua"/>
     <Form Name="MatchMaker.xml"/>
 </Addon>
