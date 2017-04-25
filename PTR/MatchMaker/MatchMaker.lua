@@ -27,7 +27,7 @@ local MatchMaker = {}
 local knRandomMatchIndex = 0
 local knQuestTabId = -1
 local knFilterAll = -1
-local knSaveVersion = 1
+local knSaveVersion = 2
 local crQueueTimeNormal = ApolloColor.new("UI_TextHoloTitle")
 local crQueueTimePenalty = ApolloColor.new("UI_WindowTextRed")
 
@@ -394,12 +394,6 @@ function MatchMaker:OnDocumentReady()
 	Apollo.RegisterEventHandler("ChangeWorld",							"OnClose", self)
 	Apollo.RegisterEventHandler("AchievementGranted",					"UpdateAchievements", self)
 	Apollo.RegisterEventHandler("PlayerLevelChange",					"OnPlayerLevelChange", self)
-	
-	-- Dueling
-	Apollo.RegisterEventHandler("DuelStateChanged",						"OnDuelStateChanged", self)
-	Apollo.RegisterEventHandler("DuelAccepted",							"OnDuelAccepted", self)
-	Apollo.RegisterEventHandler("DuelLeftArea",							"OnDuelLeftArea", self)
-	Apollo.RegisterEventHandler("DuelCancelWarning",					"OnDuelCancelWarning", self)
 
 	--PremiumTierUpdates
 	Apollo.RegisterEventHandler("PremiumTierChanged",					"UpdateTeamInfo", self)
@@ -415,12 +409,6 @@ function MatchMaker:OnDocumentReady()
 	Apollo.RegisterEventHandler("LevelUpUnlock_GroupFinder_General",	"OnShowContentFinder", self)
 	Apollo.RegisterEventHandler("SuggestedContent_ShowMatch",			"OnSuggestedContentShowMatch", self)
 	Apollo.RegisterEventHandler("OpenQueueWindow",						"OnShowQueueStatus", self)
-
-	self.timerDuelCountdown = ApolloTimer.Create(1.0, true, "OnDuelCountdownTimer", self)
-	self.timerDuelCountdown:Stop()
-
-	self.timerDuelRangeWarning = ApolloTimer.Create(1.0, true, "OnDuelWarningTimer", self)
-	self.timerDuelRangeWarning:Stop()
 	
 	self.timerNavPointNotification = ApolloTimer.Create(3.0, false, "HideNavPointNotification", self)
 	self.timerNavPointNotification:Stop()
@@ -834,7 +822,7 @@ function MatchMaker:UpdateInMatchControls()
 				if tReward.nRewardType == GameLib.CodeEnumRewardRotationRewardType.Essence then
 					bFound = true
 				
-					self:BuildRewardContainer(wndRewardIconContainer, tReward)
+					self:BuildRewardContainer(wndRewardIconContainer, tReward, false, true)
 					
 					local wndRewardIconEntry = wndLockedRewards:FindChild("RewardIconEntry")
 					wndRewardIconEntry:RemoveEventHandler("GenerateTooltip")
@@ -1255,6 +1243,13 @@ function MatchMaker:BuildRewardsList(tRewardRotation)
 end
 
 function MatchMaker:BuildFeaturedControl(wndParent, tRewardListEntry)
+	local wndShowCompleted = self.tWndRefs.wndMain:FindChild("FeaturedTab:Controls:ShowCompletedBtn")
+	if wndShowCompleted and not wndShowCompleted:IsChecked() then
+		if tRewardListEntry.tRewardInfo.bGranted then
+			return
+		end
+	end
+	
 	local wndRewardPickContainer = Apollo.LoadForm(self.xmlDoc, "RewardPick", wndParent, self)
 	
 	wndRewardPickContainer:FindChild("InfoButton"):SetData(tRewardListEntry)
@@ -1384,8 +1379,12 @@ function MatchMaker:HelperConvertToTimeTilExpired(nSeconds)
 end
 
 
-function MatchMaker:BuildRewardContainer(wndParent, tRewardInfo, bUseLabel)
+function MatchMaker:BuildRewardContainer(wndParent, tRewardInfo, bUseLabel, bHideGrantedInfo)
 	if tRewardInfo == nil then
+		return
+	end
+	
+	if bHideGrantedInfo and tRewardInfo.bGranted and tRewardInfo.nRewardType == GameLib.CodeEnumRewardRotationRewardType.Item then
 		return
 	end
 
@@ -1406,19 +1405,30 @@ function MatchMaker:BuildRewardContainer(wndParent, tRewardInfo, bUseLabel)
 	if tRewardInfo.itemReward then
 		local luaSubclass = wndRewardIconEntry:FindChild("RewardIcon"):GetWindowSubclass()
 		luaSubclass:SetItem(tRewardInfo.itemReward)
-	end	
+	end
 	
 	wndRewardIconEntry:FindChild("RewardIcon"):SetSprite(strRewardSprite)
 	local wndRewardMultiplier = wndRewardIconEntry:FindChild("RewardMultiplier")
+
+	local bShowMultiplier = not (tRewardInfo.bGranted and bHideGrantedInfo)
+	
 	if tRewardInfo.nMultiplier and tRewardInfo.nMultiplier > 1 then
 		wndRewardMultiplier:SetText(String_GetWeaselString(Apollo.GetString("MatchMaker_RewardMultiplierValue"), tRewardInfo.nMultiplier))
 		wndRewardMultiplier:SetTooltip(String_GetWeaselString(Apollo.GetString("RewardRotation_MultiplierTooltip"), tRewardInfo.monReward:GetTypeString(), tRewardInfo.nMultiplier))
-		wndRewardMultiplier:Show(true)
+		wndRewardMultiplier:Show(bShowMultiplier)
 	elseif tRewardInfo.nRewardType == GameLib.CodeEnumRewardRotationRewardType.Modifier then
 		wndRewardMultiplier:SetText(String_GetWeaselString(Apollo.GetString("MatchMaker_RewardMultiplierValue"), tRewardInfo.nValue))
-		wndRewardMultiplier:Show(true)		
+		wndRewardMultiplier:Show(bShowMultiplier)		
 	else
 		wndRewardMultiplier:Show(false)
+	end
+	
+	if tRewardInfo.bGranted and not bHideGrantedInfo then
+		wndRewardIconEntry:FindChild("GrantedIconMini"):Show(true)
+		wndRewardIconEntry:FindChild("GrantedBlocker"):Show(true)
+	else
+		wndRewardIconEntry:FindChild("GrantedIconMini"):Show(false)
+		wndRewardIconEntry:FindChild("GrantedBlocker"):Show(false)
 	end
 	
 	if bUseLabel then
@@ -1855,7 +1865,7 @@ function MatchMaker:BuildRandomHeader(eMatchType, wndParent)
 		for idx, tReward in pairs(tRotationRewards.arRewards) do
 			if not tReward.bAlreadyGranted then
 				wndRewardIconContainer:Show(true)
-				self:BuildRewardContainer(wndRewardIconContainer, tReward)
+				self:BuildRewardContainer(wndRewardIconContainer, tReward, false, true)
 				local wndRewardIconEntry = wndRewardIconContainer:FindChild("RewardIconEntry")
 				wndRewardIconEntry:SetAnchorPoints(1,0,1,0)
 				wndRewardIconEntry:SetAnchorOffsets(-wndRewardIconContainer:GetWidth(),0,0,wndRewardIconContainer:GetHeight())
@@ -1946,7 +1956,7 @@ function MatchMaker:BuildMatchButton(tblMatch, eMatchType, bIsVeteran, wndParent
 			for idx, tReward in pairs(arRewards) do
 				if tReward.nRewardType == GameLib.CodeEnumRewardRotationRewardType.Essence then
 					wndRewardIconContainer:Show(true)
-					self:BuildRewardContainer(wndRewardIconContainer, tReward)	
+					self:BuildRewardContainer(wndRewardIconContainer, tReward, false, true)	
 					local wndRewardIconEntry = wndRewardIconContainer:FindChild("RewardIconEntry")
 					wndRewardIconEntry:SetAnchorPoints(1,0,1,0)
 					wndRewardIconEntry:SetAnchorOffsets(-wndRewardIconContainer:GetWidth(),0,0,wndRewardIconContainer:GetHeight())
@@ -2017,10 +2027,11 @@ function MatchMaker:BuildPrimeLevelMatchButton(tblMatch, eMatchType, wndParent)
 		local wndMultipleRewardsIcon = wndOption:FindChild("MultipleRewardsIcon")
 		wndMultipleRewardsIcon:Show(false)
 		if arRewards then
+			local nAvailableRewards = 0
 			for idx, tReward in pairs(arRewards) do
 				if tReward.nRewardType == GameLib.CodeEnumRewardRotationRewardType.Essence then
 					bFound = true
-					self:BuildRewardContainer(wndRewardIconContainer, tReward)	
+					self:BuildRewardContainer(wndRewardIconContainer, tReward, false, true)	
 					local wndRewardIconEntry = wndRewardIconContainer:FindChild("RewardIconEntry")
 					wndRewardIconEntry:SetAnchorPoints(1,0,1,0)
 					wndRewardIconEntry:SetAnchorOffsets(-wndRewardIconContainer:GetWidth(),0,0,wndRewardIconContainer:GetHeight())
@@ -2034,11 +2045,16 @@ function MatchMaker:BuildPrimeLevelMatchButton(tblMatch, eMatchType, wndParent)
 					wndRewardIconMultiplier:SetAnchorPoints(0,1,1,1)
 					wndRewardIconMultiplier:SetAnchorOffsets(0,-15,0,-1)
 				end
-				if idx > 1 then
-					wndMultipleRewardsIcon:Show(true)
+				
+				if not tReward.bGranted then
+					nAvailableRewards = nAvailableRewards + 1
 				end
 			end
 			
+			if nAvailableRewards > 1 then
+				wndMultipleRewardsIcon:Show(true)
+			end
+
 			wndRewardIconContainer:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.RightOrBottom)
 		end
 	end
@@ -2364,7 +2380,7 @@ function MatchMaker:SetMatchDetails(matchSelected)
 			local nRotationRewardsHeight = 0
 			for idx, tReward in pairs(tRotationRewardInfo.arRewards) do
 				if not tReward.bAlreadyGranted then
-					local wndEntry = self:BuildRewardContainer(wndRotationRewards, tReward, true)
+					local wndEntry = self:BuildRewardContainer(wndRotationRewards, tReward, true, true)
 					nRotationRewardsHeight = nRotationRewardsHeight + wndEntry:GetHeight()
 				end
 			end
@@ -2395,7 +2411,7 @@ function MatchMaker:SetMatchDetails(matchSelected)
 			wndRewardIconContainer:DestroyChildren()
 			if arRotationRewardInfo then
 				for idx, tReward in pairs(arRotationRewardInfo) do
-					self:BuildRewardContainer(wndRewardIconContainer, tReward)
+					self:BuildRewardContainer(wndRewardIconContainer, tReward, false, true)
 					bFound = true
 				end
 				wndRewardIconContainer:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.LeftOrTop)
@@ -2595,14 +2611,14 @@ function MatchMaker:UpdateQueueList(matchUpdated, bShouldAdd)
 end
 
 function MatchMaker:HelperToggleRole(eRole, eMasterTab, bShouldAdd)
+	if eMasterTab == nil then
+		return
+	end
+
 	if bShouldAdd then
-		table.insert(self.tQueueOptions[eMasterTab].arRoles, eRole)
-	elseif self.tQueueOptions[eMasterTab].arRoles and #self.tQueueOptions[eMasterTab].arRoles > 0 then
-		for idx = 1, #self.tQueueOptions[eMasterTab].arRoles do
-			if self.tQueueOptions[eMasterTab].arRoles[idx] == eRole then
-				table.remove(self.tQueueOptions[eMasterTab].arRoles, idx)
-			end
-		end
+		self.tQueueOptions[eMasterTab].arRoles[eRole] = eRole
+	else
+		self.tQueueOptions[eMasterTab].arRoles[eRole] = nil
 	end
 end
 
@@ -2610,7 +2626,9 @@ function MatchMaker:OnToggleCombatRole(wndHandler, wndControl)
 	if wndHandler ~= wndControl then
 		return
 	end
-
+	
+	Event_FireGenericEvent("Generic_MatchMaker_ToggleCombatRole", {eRole = wndHandler:GetData(), bSet = wndHandler:IsChecked()})
+	
 	self:HelperToggleRole(wndHandler:GetData(), self.eSelectedMasterType, wndHandler:IsChecked())
 	self:ValidateQueueButtons()
 end
@@ -2694,7 +2712,7 @@ function MatchMaker:CheckQueueEligibility()
 	
 	local bValidRoleSelection = true
 	if not bSoloOnly and eType ~= MatchMakingLib.MatchType.Arena then
-		bValidRoleSelection = self.tQueueOptions[eMasterTab].arRoles and #self.tQueueOptions[eMasterTab].arRoles > 0
+		bValidRoleSelection = self.tQueueOptions[eMasterTab].arRoles and next(self.tQueueOptions[eMasterTab].arRoles) ~= nil
 	end
 	
 	local nWarpartyTeamSize = 0
@@ -3142,13 +3160,13 @@ end
 -- Queue Info
 -----------------------------------------------------------------------------------------------
 function MatchMaker:OnSoloQueue()
-	if #self.arMatchesToQueue > 0 then
+	if #self.arMatchesToQueue > 0 and self.eSelectedMasterType ~= nil then
 		MatchMakingLib.Queue(self.arMatchesToQueue, self.tQueueOptions[self.eSelectedMasterType])
 	end
 end
 
 function MatchMaker:OnGroupQueue()
-	if #self.arMatchesToQueue > 0 then
+	if #self.arMatchesToQueue > 0 and self.eSelectedMasterType ~= nil then
 		MatchMakingLib.QueueAsGroup(self.arMatchesToQueue, self.tQueueOptions[self.eSelectedMasterType])
 	end
 end
@@ -3415,34 +3433,36 @@ function MatchMaker:CheckQueuePenalties()
 		return
 	end
 	
-	local eMatchType = MatchMakingLib.MatchType.Shiphand
+	local eMatchType = nil
 	if self.eSelectedMasterType == keMasterTabs.PvE then
 		eMatchType = self.ePvETabSelected
-	else
+	elseif self.eSelectedMasterType == keMasterTabs.PvP then
 		eMatchType = self.ePvPTabSelected
 	end
 	
-	local wndPenaltyInfo = self.tWndRefs.wndMain:FindChild("TabContent:MatchContent:MatchTypeInfo:PenaltyInfo")
-	wndPenaltyInfo:Show(false)
+	if eMatchType ~= nil then
+		local wndPenaltyInfo = self.tWndRefs.wndMain:FindChild("TabContent:MatchContent:MatchTypeInfo:PenaltyInfo")
+		wndPenaltyInfo:Show(false)
+		
+		local tPenaltyInfo = MatchMakingLib.GetPenalizedPartyMembers(eMatchType)
+		if ktNormalToRated[eMatchType] and (not tPenaltyInfo or tPenaltyInfo.fPenaltyDuration == 0) then
+			tPenaltyInfo = MatchMakingLib.GetPenalizedPartyMembers(ktNormalToRated[eMatchType])
+		end
+		
+		if tPenaltyInfo then
+			local fPenaltyDuration = tPenaltyInfo.fPenaltyDuration
+			if fPenaltyDuration > 0 then
+				local tPenalizedPlayers = tPenaltyInfo.arPenalized
+				if #tPenalizedPlayers == 0 then
+					table.insert(tPenalizedPlayers, Apollo.GetString("CRB_Unknown"))
+				end
+				
+				local nPenaltyMins = fPenaltyDuration / 60 + 0.5 -- force rounding
+				local strPenaltyNotice = String_GetWeaselString(Apollo.GetString("MatchMaker_PenaltyNotice"), {name=Apollo.GetString("CRB_Minute"), count=nPenaltyMins}, table.concat(tPenalizedPlayers, Apollo.GetString("CRB_ListSeparator")))
 	
-	local tPenaltyInfo = MatchMakingLib.GetPenalizedPartyMembers(eMatchType)
-	if ktNormalToRated[eMatchType] and (not tPenaltyInfo or tPenaltyInfo.fPenaltyDuration == 0) then
-		tPenaltyInfo = MatchMakingLib.GetPenalizedPartyMembers(ktNormalToRated[eMatchType])
-	end
-	
-	if tPenaltyInfo then
-		local fPenaltyDuration = tPenaltyInfo.fPenaltyDuration
-		if fPenaltyDuration > 0 then
-			local tPenalizedPlayers = tPenaltyInfo.arPenalized
-			if #tPenalizedPlayers == 0 then
-				table.insert(tPenalizedPlayers, Apollo.GetString("CRB_Unknown"))
+				wndPenaltyInfo:SetText(strPenaltyNotice)
+				wndPenaltyInfo:Show(true)
 			end
-			
-			local nPenaltyMins = fPenaltyDuration / 60 + 0.5 -- force rounding
-			local strPenaltyNotice = String_GetWeaselString(Apollo.GetString("MatchMaker_PenaltyNotice"), {name=Apollo.GetString("CRB_Minute"), count=nPenaltyMins}, table.concat(tPenalizedPlayers, Apollo.GetString("CRB_ListSeparator")))
-
-			wndPenaltyInfo:SetText(strPenaltyNotice)
-			wndPenaltyInfo:Show(true)
 		end
 	end
 end
@@ -3627,100 +3647,33 @@ end
 -- Role Check
 -----------------------------------------------------------------------------------------------
 function MatchMaker:OnRoleCheck(bRolesRequired)
-	self.tWndRefs.wndConfirmRole = Apollo.LoadForm(self.xmlDoc, "RoleConfirm", nil, self)
-	local wndConfirmRoleButtons = self.tWndRefs.wndConfirmRole:FindChild("InsetFrame")
-	
-	local arSelectedRoles = self.tQueueOptions[self.eSelectedMasterType].arRoles
-	
-	if bRolesRequired then
-		local tRoleCheckButtons =
-		{
-			[MatchMakingLib.Roles.Tank] = wndConfirmRoleButtons:FindChild("TankBtn"),
-			[MatchMakingLib.Roles.Healer] = wndConfirmRoleButtons:FindChild("HealerBtn"),
-			[MatchMakingLib.Roles.DPS] = wndConfirmRoleButtons:FindChild("DPSBtn"),
-		}
-	
-		for eRole, wndButton in pairs(tRoleCheckButtons) do
-			wndButton:Enable(false)
-			wndButton:SetData(eRole)
-		end
-	
-		for idx, eRole in pairs(MatchMakingLib.GetEligibleRoles()) do
-			tRoleCheckButtons[eRole]:Enable(true)
-		end
-	
-		if arSelectedRoles then
-			for idx, eRole in pairs(arSelectedRoles) do
-				tRoleCheckButtons[eRole]:SetCheck(true)
-			end
-		end
-		
-		if self.tWndRefs.wndMain then
-			local wndQueueBlocker = self.tWndRefs.wndMain:FindChild("TabContent:MatchContent:QueueBlocker")
-			wndQueueBlocker:Show(true)
-			local eMatchType = MatchMakingLib.MatchType.Shiphand
-			if self.eSelectedMasterType == keMasterTabs.PvE then
-				eMatchType = self.ePvETabSelected
-			else
-				eMatchType = self.ePvPTabSelected
-			end
-			
-			if GroupLib.InGroup() then
-				wndQueueBlocker:FindChild("QueuePending:Text"):SetText(String_GetWeaselString(Apollo.GetString("MatchMaker_QueuePending"), ktTypeNames[eMatchType]))
-				wndQueueBlocker:FindChild("QueuePending"):Show(true)
-				wndQueueBlocker:FindChild("QueueActive"):Show(false)
-			end
-		end
-
-	else
-		local nLeft, nTop, nRight, nBottom = self.tWndRefs.wndConfirmRole:GetAnchorOffsets()
-		self.tWndRefs.wndConfirmRole:SetAnchorOffsets(nLeft, nTop, nRight, nBottom - wndConfirmRoleButtons:GetHeight())
-		wndConfirmRoleButtons:Show(false)
-		self.tWndRefs.wndConfirmRole:FindChild("Header"):SetText(Apollo.GetString("MatchMaker_QueueConfirmTitle"))
+	if self.tWndRefs.wndMain == nil or not self.tWndRefs.wndMain:IsValid() then
+		return
 	end
 	
-	self.tWndRefs.wndConfirmRole:FindChild("AcceptButton"):Enable(not bRolesRequired or (arSelectedRoles and #arSelectedRoles > 0))
+	local wndQueueBlocker = self.tWndRefs.wndMain:FindChild("TabContent:MatchContent:QueueBlocker")
+	wndQueueBlocker:Show(true)
+	
+	local eMatchType = MatchMakingLib.MatchType.Shiphand
+	if self.eSelectedMasterType == keMasterTabs.PvE then
+		eMatchType = self.ePvETabSelected
+	elseif self.eSelectedMasterType == keMasterTabs.PvP then
+		eMatchType = self.ePvPTabSelected
+	end
+	
+	if GroupLib.InGroup() then
+		wndQueueBlocker:FindChild("QueuePending:Text"):SetText(String_GetWeaselString(Apollo.GetString("MatchMaker_QueuePending"), ktTypeNames[eMatchType]))
+		wndQueueBlocker:FindChild("QueuePending"):Show(true)
+		wndQueueBlocker:FindChild("QueueActive"):Show(false)
+	end
 end
 
 function MatchMaker:OnRoleCheckCanceled()
-	if self.tWndRefs.wndMain then
-		self.tWndRefs.wndMain:FindChild("TabContent:MatchContent:QueueBlocker"):Show(false)
-	end
-	
-	if self.tWndRefs.wndConfirmRole == nil then
+	if self.tWndRefs.wndMain == nil or not self.tWndRefs.wndMain:IsValid() then
 		return
 	end
 
-	self.tWndRefs.wndConfirmRole:Close()
-end
-
-function MatchMaker:OnRoleCheckClosed()
-	self.tWndRefs.wndConfirmRole:Destroy()
-	self.tWndRefs.wndConfirmRole = nil
-end
-
-function MatchMaker:OnAcceptRole()
-	if not self.tQueueOptions[self.eSelectedMasterType].arRoles then
-		return
-	end
-
-	MatchingGameLib.ConfirmRole(self.tQueueOptions[self.eSelectedMasterType].arRoles)
-	self.tWndRefs.wndConfirmRole:Close()
-end
-
-function MatchMaker:OnCancelRole()
-	MatchingGameLib.DeclineRoleCheck()
-	self.tWndRefs.wndConfirmRole:Close()
-end
-
-function MatchMaker:OnToggleRoleCheck(wndHandler, wndControl)
-	if wndHandler ~= wndControl then
-		return
-	end
-
-	self:HelperToggleRole(wndHandler:GetData(), self.eSelectedMasterType, wndHandler:IsChecked())
-
-	self.tWndRefs.wndConfirmRole:FindChild("AcceptButton"):Enable(self.tQueueOptions[self.eSelectedMasterType].arRoles and #self.tQueueOptions[self.eSelectedMasterType].arRoles > 0)
+	self.tWndRefs.wndMain:FindChild("TabContent:MatchContent:QueueBlocker"):Show(false)
 end
 
 -----------------------------------------------------------------------------------------------
@@ -3988,99 +3941,8 @@ function MatchMaker:SetContentFilterSelection(wndHandler, wndControl)
 	self:BuildFeaturedList()
 end
 
------------------------------------------------------------------------------------------------
--- Dueling
------------------------------------------------------------------------------------------------
-
-function MatchMaker:OnAcceptDuel(wndHandler, wndControl)
-	GameLib.AcceptDuel()
-	if self.tWndRefs.wndDuelRequest then
-		self.tWndRefs.wndDuelRequest:Destroy()
-		self.tWndRefs.wndDuelRequest = nil
-	end
-end
-
-function MatchMaker:OnDeclineDuel(wndHandler, wndControl)
-	GameLib.DeclineDuel()
-	if self.tWndRefs.wndDuelRequest then
-		self.tWndRefs.wndDuelRequest:Destroy()
-		self.tWndRefs.wndDuelRequest = nil
-	end
-end
-
-function MatchMaker:OnDuelStateChanged(eNewState, unitOpponent)
-	
-	if self.tWndRefs.wndDuelWarning then
-		self.tWndRefs.wndDuelWarning:Destroy()
-		self.tWndRefs.wndDuelWarning = nil
-	end
-	
-	if eNewState == GameLib.CodeEnumDuelState.WaitingToAccept then
-		if not self.tWndRefs.wndDuelRequest then
-			self.tWndRefs["wndDuelRequest"] = Apollo.LoadForm(self.xmlDoc, "DuelRequest", nil, self)
-		end
-		self.tWndRefs.wndDuelRequest:FindChild("Title"):SetText(String_GetWeaselString(Apollo.GetString("MatchMaker_DuelPrompt"), unitOpponent:GetName()))
-		self.tWndRefs.wndDuelRequest:Show(true)
-		self.tWndRefs.wndDuelRequest:ToFront()
-	else
-		if self.tWndRefs.wndDuelRequest then
-			self.tWndRefs.wndDuelRequest:Destroy()
-			self.tWndRefs.wndDuelRequest = nil
-		end
-	end
-	
-end
-
-function MatchMaker:OnDuelAccepted(fCountdownTime)
-	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_ZonePvP, String_GetWeaselString(Apollo.GetString("MatchMaker_DuelStartingTimer"), fCountdownTime), "")
-	self.fDuelCountdown = fCountdownTime - 1
-
-	self.timerDuelCountdown:Start()
-end
-
-function MatchMaker:OnDuelCountdownTimer()
-	if self.fDuelCountdown <= 0 then
-		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_ZonePvP, Apollo.GetString("Matchmaker_DuelBegin"), "")
-		self.timerDuelCountdown:Stop()
-	else
-		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_ZonePvP, self.fDuelCountdown .. "...", "")
-		self.fDuelCountdown = self.fDuelCountdown - 1
-	end
-end
-
-function MatchMaker:OnDuelLeftArea(fTimeRemaining)
-	if not self.tWndRefs.wndDuelWarning then
-		self.tWndRefs["wndDuelWarning"] = Apollo.LoadForm(self.xmlDoc, "DuelWarning", nil, self)
-	end
-	self.tWndRefs.wndDuelWarning:FindChild("Timer"):SetText(fTimeRemaining)
-	self.tWndRefs.wndDuelWarning:Show(true)
-	self.tWndRefs.wndDuelWarning:ToFront()
-	self.fDuelWarning = fTimeRemaining -1
-	
-	self.timerDuelRangeWarning:Start()
-end
-
-function MatchMaker:OnDuelWarningTimer()
-	if self.fDuelWarning <= 0 then
-		if self.tWndRefs.wndDuelWarning then
-			self.tWndRefs.wndDuelWarning:Destroy()
-			self.tWndRefs.wndDuelWarning = nil
-			self.timerDuelRangeWarning:Stop()
-		end
-	else
-		if not self.tWndRefs.wndDuelWarning then
-			self.tWndRefs["wndDuelWarning"] = Apollo.LoadForm(self.xmlDoc, "DuelWarning", nil, self)
-		end
-		self.tWndRefs.wndDuelWarning:FindChild("Timer"):SetText(self.fDuelWarning)
-		self.fDuelWarning = self.fDuelWarning - 1
-	end
-end
-
-function MatchMaker:OnDuelCancelWarning()
-	if self.tWndRefs.wndDuelWarning then
-		self.tWndRefs.wndDuelWarning:Destroy()
-		self.tWndRefs.wndDuelWarning = nil
-	end
+function MatchMaker:OnFeaturedShowCompleted( wndHandler, wndControl, eMouseButton )
+	self:BuildFeaturedList()
 end
 
 ---------------------------------------------------------------------------------------------------
