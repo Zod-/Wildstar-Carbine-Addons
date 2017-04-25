@@ -6,6 +6,8 @@
 require "Window"
 require "GameLib"
 require "StorefrontLib"
+require "LiveEventsLib"
+require "LiveEvent"
  
 local LiveEvents = {} 
 local knObjectivePadding = 5
