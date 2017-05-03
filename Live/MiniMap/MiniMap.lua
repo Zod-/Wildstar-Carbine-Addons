@@ -18,8 +18,6 @@ require "PublicEvent"
 require "PublicEventObjective"
 require "FriendshipLib"
 require "CraftingLib"
-require "LiveEventsLib"
-require "LiveEvent"
 require "MatchMakingLib"
 
 -- TODO: Distinguish markers for different nodes from each other
