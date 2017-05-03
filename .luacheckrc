@@ -83,6 +83,7 @@ globals = {
   "Event_CancelTaxiVendor",
   "Event_CancelTradeskillTraining",
   "Event_CancelTraining",
+  "Event_CancelRealmBanking",
   "Event_CancelVending",
   "Event_CancelWarpartyBank",
   "Event_FireGenericEvent",
