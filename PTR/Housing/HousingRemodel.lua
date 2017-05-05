@@ -551,18 +551,28 @@ function HousingRemodel:OnLoad()
 	Apollo.RegisterEventHandler("PlayerCurrencyChanged", 			"OnPlayerCurrencyChanged", self)
 	Apollo.RegisterEventHandler("HousingBuildStarted", 				"OnBuildStarted", self)
 	Apollo.RegisterEventHandler("HousingRandomResidenceListRecieved", 	"OnRandomResidenceList", self)
+	Apollo.RegisterEventHandler("HousingRandomCommunityListReceived",	"OnRandomCommunityList", self)
+	Apollo.RegisterEventHandler("HousingCommunityPlacedResidencesListRecieved", 	"OnCommunityPlacedResidenceList", self)
 
 	Apollo.RegisterTimerHandler("HousingRemodelTimer", 				"OnRemodelTimer", self)
 	Apollo.RegisterTimerHandler("HousingIntRemodelTimer", 			"OnIntRemodelTimer", self)
 	Apollo.RegisterEventHandler("ChangeWorld", 						"OnChangeWorld", self)
 	Apollo.RegisterEventHandler("UpdateInventory", 					"OnUpdateInventory", self)
 	Apollo.RegisterEventHandler("StoreLinksRefresh",				"OnStoreLinksRefresh", self)
+	
+	Apollo.RegisterEventHandler("GuildRoster", 						"OnGuildRoster", self)
+	Apollo.RegisterEventHandler("GuildChange", 						"OnGuildChange", self)  -- notification that a guild was added / removed.
+	Apollo.RegisterEventHandler("GuildMemberChange",				"OnGuildMemberChange", self)
 
 	Apollo.CreateTimer("HousingRemodelTimer", 0.200, false)
 	Apollo.StopTimer("HousingRemodelTimer")
 
 	Apollo.CreateTimer("HousingIntRemodelTimer", 0.200, false)
 	Apollo.StopTimer("HousingIntRemodelTimer")
+	
+	Apollo.RegisterTimerHandler("RetryLoadingCommunity", 			"OnGuildChange", self)
+	Apollo.CreateTimer("RetryLoadingCommunity", 1.0, false)
+	Apollo.StopTimer("RetryLoadingCommunity")
 
     -- load our forms
     self.xmlDoc                     = XmlDoc.CreateFromFile(kstrXML)
@@ -588,16 +598,16 @@ function HousingRemodel:OnLoad()
 	self.wndPropertyRenamePopup 	= Apollo.LoadForm(self.xmlDoc, "PropertyRenamePanel", nil, self)
 	
 	self.wndCommunitySettingsBtn    = self.wndConfigure:FindChild("CommunitySettingsBtn")
-	--self.wndCommunitySettingsBtn:Show(false)
-	self.wndCommunityVisitBtn       = self.wndConfigure:FindChild("VisitCommunityBtn")
-	--self.wndCommunityVisitBtn:Show(false)
+	self.wndCommunitySettingsBtn:Show(false)
 	
 	self.wndCommunitySettingsPopup  = Apollo.LoadForm(self.xmlDoc, "CommunitySettingsPanel", nil, self)
-	self.wndCommunityVisitPopup     = Apollo.LoadForm(self.xmlDoc, "CommunityVisitPanel", nil, self)
-	self.wndCommunityVisitPopup:Show(false)
-	self.wndCommunityVisitPopup:FindChild("QueueNextAvailableBtn"):AttachWindow(self.wndCommunityVisitPopup:FindChild("QueueNextAvailableBtn"):FindChild("ConfirmWindow"))
-	self.wndCommunityVisitPopup:FindChild("QueueBtn"):AttachWindow(self.wndCommunityVisitPopup:FindChild("QueueBtn"):FindChild("ConfirmWindow"))
-
+	self.wndCommunitySettingsPopup:Show(false)
+	self.wndCommunitySettingsPopup:FindChild("ReservePlotBtn"):AttachWindow(self.wndCommunitySettingsPopup:FindChild("ReservePlotBtn"):FindChild("ConfirmWindow"))
+	self.wndCommunitySettingsPopup:FindChild("EvictResidentBtn"):AttachWindow(self.wndCommunitySettingsPopup:FindChild("EvictResidentBtn"):FindChild("ConfirmWindow"))
+	self.wndCommunitySettingsPopup:FindChild("PlaceBtn"):AttachWindow(self.wndCommunitySettingsPopup:FindChild("PlaceBtn"):FindChild("ConfirmWindow"))
+	self.wndCommunitySettingsPopup:FindChild("RemoveBtn"):AttachWindow(self.wndCommunitySettingsPopup:FindChild("RemoveBtn"):FindChild("ConfirmWindow"))
+	self.wndCommunitySettingsPopup:FindChild("VisitCommunityBtn"):AttachWindow(self.wndCommunitySettingsPopup:FindChild("VisitCommunityBtn"):FindChild("ConfirmWindow"))
+	
 	self.wndListView:SetColumnText(1, Apollo.GetString("HousingRemodel_UpgradeColumn"))
 	self.wndListView:SetColumnText(2, Apollo.GetString("HousingRemodel_Cost"))
 	
@@ -633,6 +643,19 @@ function HousingRemodel:OnLoad()
 
 	self.wndCashRemodel:SetAmount(GameLib.GetPlayerCurrency(), true)
 	HousingLib.RefreshUI()
+	
+	local arGuilds = GuildLib.GetGuilds()
+	for key, guildCurr in pairs(arGuilds) do
+		if guildCurr:GetType() == GuildLib.GuildType_Community then
+			self.wndCommunitySettingsPopup:SetData(guildCurr)
+			self.wndCommunitySettingsBtn:Show(true)
+		end
+	end
+	
+	-- Retry, in case Guild Lib is still loading
+	if self.wndCommunitySettingsPopup:GetData() ~= nil and GuildLib:IsLoading() then
+		Apollo.StartTimer("RetryLoadingCommunity")
+	end
 
 	Apollo.RegisterEventHandler("WindowManagementReady", 	"OnWindowManagementReady", self)
 	self:OnWindowManagementReady()
@@ -675,24 +698,75 @@ function HousingRemodel:ShowRandomList()
 	HousingLib.RequestRandomResidenceList()
 	self.wndRandomList:FindChild("VisitRandomBtn"):Enable(false)
 	self.wndRandomList:FindChild("ListContainer"):DestroyChildren()
+	self.wndRandomList:FindChild("ListIndividualsBtn"):SetCheck(true)
+	self.wndRandomList:FindChild("ListCommunitiesBtn"):SetCheck(false)
 	self.wndRandomList:Invoke()
 end
 
 function HousingRemodel:OnRandomResidenceList()
-	self.wndRandomList:FindChild("ListContainer"):DestroyChildren()
+	if self.wndRandomList:FindChild("ListIndividualsBtn"):IsChecked() then
+		self:FillRandomResidenceList(false)
+	end
+end
 
+function HousingRemodel:OnRandomCommunityList()
+	if self.wndRandomList:FindChild("ListCommunitiesBtn"):IsChecked() then
+		self:FillRandomCommunityList(false)
+	end
+end
+
+function HousingRemodel:FillRandomResidenceList(bRequestIfEmpty)
+	self.wndRandomList:FindChild("ListContainer"):DestroyChildren()
+	
 	local arResidences = HousingLib.GetRandomResidenceList()
+	if bRequestIfEmpty and #arResidences == 0 then
+		HousingLib.RequestRandomResidenceList()
+		return
+	end
+
 	for key, tHouse in pairs(arResidences) do
 		local wnd = Apollo.LoadForm(self.xmlDoc, "RandomFriendForm", self.wndRandomList:FindChild("ListContainer"), self)
 		wnd:SetData(tHouse.nId) -- set the full table since we have no direct lookup for neighbors
 		wnd:FindChild("PlayerName"):SetText(String_GetWeaselString(Apollo.GetString("Neighbors_OwnerListing"), tHouse.strCharacterName))
 		wnd:FindChild("PropertyName"):SetText(tHouse.strResidenceName)
 	end
-
+	
 	self.wndRandomList:FindChild("ListContainer"):ArrangeChildrenVert()
 	self.wndRandomList:FindChild("VisitRandomBtn"):Enable(false)
 	self.wndRandomList:FindChild("ClearSearchBtn"):Show(false)
 	self.wndRandomList:FindChild("VisitNameEntry"):SetText("")
+	self.wndRandomList:FindChild("VisitPlayerLabel"):SetText(Apollo.GetString("Neighbors_VisitPlayerByName"))
+end
+
+function HousingRemodel:FillRandomCommunityList(bRequestIfEmpty)
+	self.wndRandomList:FindChild("ListContainer"):DestroyChildren()
+	
+	local arCommunities = HousingLib.GetRandomCommunityList()
+	if bRequestIfEmpty and #arCommunities == 0 then
+		HousingLib.RequestRandomCommunityList()
+		return
+	end
+
+	for key, tHouse in pairs(arCommunities) do
+		local wnd = Apollo.LoadForm(self.xmlDoc, "RandomFriendForm", self.wndRandomList:FindChild("ListContainer"), self)
+		wnd:SetData(tHouse.nId) -- set the full table since we have no direct lookup for neighbors
+		wnd:FindChild("PropertyName"):SetText(tHouse.strResidenceName)
+		wnd:FindChild("PlayerName"):SetText(String_GetWeaselString(Apollo.GetString("Neighbors_OwnerListing"), tHouse.strCommunityLeader))
+	end
+		
+	self.wndRandomList:FindChild("ListContainer"):ArrangeChildrenVert()
+	self.wndRandomList:FindChild("VisitRandomBtn"):Enable(false)
+	self.wndRandomList:FindChild("ClearSearchBtn"):Show(false)
+	self.wndRandomList:FindChild("VisitNameEntry"):SetText("")
+	self.wndRandomList:FindChild("VisitPlayerLabel"):SetText(Apollo.GetString("Neighbors_VisitCommunityByName"))
+end
+
+function HousingRemodel:OnListIndividuals(wndHandler, wndControl)
+	self:FillRandomResidenceList(true)
+end
+
+function HousingRemodel:OnListCommunities(wndHandler, wndControl)
+	self:FillRandomCommunityList(true)
 end
 
 function HousingRemodel:OnRandomFriendClose()
@@ -705,14 +779,28 @@ end
 
 function HousingRemodel:OnVisitRandomBtn(wndHandler, wndControl)
 	wndControl:FindChild("VisitWindow"):Show(true)
+	
+	if self.wndRandomList:FindChild("ListIndividualsBtn"):IsChecked() then
+		wndControl:FindChild("VisitWindow:Prompt"):SetText(Apollo.GetString("Neighbors_VisitPlayer"))
+	elseif self.wndRandomList:FindChild("ListCommunitiesBtn"):IsChecked() then
+		wndControl:FindChild("VisitWindow:Prompt"):SetText(Apollo.GetString("Neighbors_VisitCommunity"))
+	end
 end
 
 function HousingRemodel:OnVisitRandomConfirmBtn(wndHandler, wndControl)
 	local strName = self.wndRandomList:FindChild("VisitNameEntry"):GetText()
-	if strName ~= nil and strName ~= "" then
-		HousingLib.RequestVisitPlayer(strName)
-	else
-		HousingLib.RequestRandomVisit(wndControl:GetParent():GetData())
+	if self.wndRandomList:FindChild("ListIndividualsBtn"):IsChecked() then
+		if strName ~= nil and strName ~= "" then
+			HousingLib.RequestVisitPlayer(strName)
+		else
+			HousingLib.RequestRandomVisit(wndControl:GetParent():GetData())
+		end
+	elseif self.wndRandomList:FindChild("ListCommunitiesBtn"):IsChecked() then
+		if strName ~= nil and strName ~= "" then
+			HousingLib.RequestVisitCommunityByName(strName)
+		else
+			HousingLib.RequestRandomCommunityVisit(wndControl:GetParent():GetData())
+		end
 	end
 	wndControl:GetParent():Show(false)
 end
@@ -905,6 +993,9 @@ function HousingRemodel:HelperShowHeader()
 	self.wndConfigure:FindChild("PropertyName"):SetText(resCurrent ~= nil and resCurrent:GetPropertyName() or "")
 	self.wndConfigure:FindChild("PropertySettingsBtn"):Show(HousingLib.IsOnMyResidence())
 	self.wndConfigure:FindChild("TeleportHomeBtn"):Show(not HousingLib.IsOnMyResidence())
+
+	local bCanTeleport = not (HousingLib.IsOnMyCommunity() and HousingLib.IsMyResidenceOnCommunity())
+	self.wndConfigure:FindChild("TeleportHomeBtn"):Enable(bCanTeleport)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1474,6 +1565,8 @@ function HousingRemodel:ShowAppropriateExtRemodelTab()
         if nSel < 1 or nSel > #self.tExtRemodelTabs then
             return
         end
+
+		self.wndRemodel:FindChild("BGArt:PropertyNameDisplay"):SetText(Apollo.GetString("Housing_RemodelYourProperty"))
         self.tExtRemodelTabs[nSel]:SetTextColor(kcrWhite)
         self.wndListView:SetSortColumn(1, true)
         
@@ -1553,6 +1646,8 @@ function HousingRemodel:ShowAppropriateExtRemodelTab()
         if nSel < 1 or nSel > #self.tCommunityRemodelTabs then
             return
         end
+
+		self.wndRemodel:FindChild("BGArt:PropertyNameDisplay"):SetText(Apollo.GetString("HousingRemodel_RemodelCommunity"))
         self.tCommunityRemodelTabs[nSel]:SetTextColor(kcrWhite)
         self.wndListView:SetSortColumn(1, true)
         
@@ -2113,17 +2208,202 @@ function HousingRemodel:OnCommunitySettingsBtn(wndHandler, wndControl, eMouseBut
 		self.wndCommunitySettingsPopup:Close()
 	else
 	    self.wndCommunitySettingsPopup:Invoke()
+	
+		local ePrivacyLevel = HousingLib.GetCommunityPrivacyLevel()
+		local strPrivacyLevel = ""
+		if ePrivacyLevel == HousingLib.ResidencePrivacyLevel.Private then
+			strPrivacyLevel = Apollo.GetString("HousingRemodel_Private")
+		else
+			strPrivacyLevel = Apollo.GetString("HousingRemodel_Public")
+		end
+		
+		if HousingLib.CanSetCommunityPrivacyLevel() then
+			self.wndCommunitySettingsPopup:FindChild("PermissionsDropdownLabel"):SetText(strPrivacyLevel)
+			self.wndCommunitySettingsPopup:FindChild("PermissionsDropdownBtn"):Show(true)
+			self.wndCommunitySettingsPopup:FindChild("PermissionText"):Show(false)
+		else
+			self.wndCommunitySettingsPopup:FindChild("PermissionText"):SetText(strPrivacyLevel)
+			self.wndCommunitySettingsPopup:FindChild("PermissionText"):Show(true)
+			self.wndCommunitySettingsPopup:FindChild("PermissionsDropdownBtn"):Show(false)
+		end
+	
+		self.wndCommunitySettingsPopup:FindChild("EvictResidentBtn"):Enable(false)
+		self.wndCommunitySettingsPopup:FindChild("PropertyFrame"):SetRadioSel("PlotGroup", 0)
+		self.wndCommunitySettingsPopup:FindChild("ReservePlotBtn"):FindChild("ConfirmWindow"):Show(false)
+		self.wndCommunitySettingsPopup:FindChild("EvictResidentBtn"):FindChild("ConfirmWindow"):Show(false)
+		self.wndCommunitySettingsPopup:FindChild("PlaceBtn"):FindChild("ConfirmWindow"):Show(false)
+		self.wndCommunitySettingsPopup:FindChild("RemoveBtn"):FindChild("ConfirmWindow"):Show(false)
+		self.wndCommunitySettingsPopup:FindChild("VisitCommunityBtn"):FindChild("ConfirmWindow"):Show(false)
+		
+		if HousingLib.IsOnMyCommunity() then
+			self.wndCommunitySettingsPopup:FindChild("VisitCommunityBtn"):Enable(false)
+			self.wndCommunitySettingsPopup:FindChild("VisitCommunityBtn"):SetTooltip(Apollo.GetString("Housing_AlreadyOnCommunity"))
+		else
+			self.wndCommunitySettingsPopup:FindChild("VisitCommunityBtn"):Enable(true)
+			self.wndCommunitySettingsPopup:FindChild("VisitCommunityBtn"):SetTooltip(Apollo.GetString("Housing_VisitCommunityTooltip"))
+		end
+		
+		for ix = 1, 5 do
+			local wndPlotButton = self.wndCommunitySettingsPopup:FindChild("PropertyFrame"):FindChild("Plot"..ix)
+			wndPlotButton:SetData(nil)
+			wndPlotButton:FindChild("OccupiedSprite."..ix):Show(false)
+			wndPlotButton:FindChild("ReservedSprite."..ix):Show(false)
+			wndPlotButton:FindChild("OwnedOutline."..ix):Show(false)
+		end
+		local guildCurr = self.wndCommunitySettingsPopup:GetData()
+		if guildCurr ~= nil then
+			guildCurr:RequestMembers()
+		end
+		
+		HousingLib.RequestCommunityPlacedResidencesList()
 	end
 end
 
-function HousingRemodel:OnVisitCommunityBtn(wndHandler, wndControl, eMouseButton)
-	if self.wndCommunityVisitPopup:IsShown() then
-		self.wndCommunityVisitPopup:Close()
-	else
-	    self.wndCommunityVisitPopup:Invoke()
-		self.wndCommunityVisitPopup:FindChild("QueueBtn"):Enable(false)
-		self.wndCommunityVisitPopup:FindChild("PropertyFrame"):SetRadioSel("PlotGroup", 0)
+function HousingRemodel:OnGuildChange()
+	local arGuilds = GuildLib.GetGuilds()
+	for key, guildCurr in pairs(arGuilds) do
+		if guildCurr:GetType() == GuildLib.GuildType_Community then
+			self.wndCommunitySettingsPopup:SetData(guildCurr)
+			self.wndCommunitySettingsBtn:Show(true)
+			guildCurr:RequestMembers()
+		end
 	end
+end
+
+function HousingRemodel:OnGuildRoster(guildCurr, tRoster)
+	if self.wndCommunitySettingsPopup:IsShown() then
+		self.wndCommunitySettingsPopup:FindChild("CommunityNameText"):SetText(guildCurr:GetName())
+		local wndPropertyFrame = self.wndCommunitySettingsPopup:FindChild("PropertyFrame")
+
+		for ix = 1, 5 do
+			local wndPlotButton = wndPropertyFrame:FindChild("Plot"..ix)
+			wndPlotButton:FindChild("ReservedSprite."..ix):Show(false)
+			
+			local tPlotInfo = wndPlotButton:GetData()
+			if tPlotInfo then
+				tPlotInfo.strReservedBy = nil
+			end
+		end
+		
+		for key, tCurr in pairs(tRoster) do
+			if tCurr.nCommunityReservedPlotIndex >= 0 then
+				local wndPlotBtn = wndPropertyFrame:FindChild("Plot"..(tCurr.nCommunityReservedPlotIndex + 1))
+				if wndPlotBtn ~= nil then
+					local tPlotInfo = wndPlotBtn:GetData()
+					if not tPlotInfo then
+						tPlotInfo = { strReservedBy = tCurr.strName }
+						wndPlotBtn:SetData(tPlotInfo)
+					else
+						tPlotInfo.strReservedBy = tCurr.strName
+					end
+
+					wndPlotBtn:FindChild("OccupiedSprite."..(tCurr.nCommunityReservedPlotIndex + 1)):Show(true)
+					wndPlotBtn:FindChild("ReservedSprite."..(tCurr.nCommunityReservedPlotIndex + 1)):Show(true)
+					wndPlotBtn:SetTooltip(String_GetWeaselString(Apollo.GetString("Housing_PlotReservedByTooltip"), tCurr.strName))
+					
+					if tCurr ~= nil and tCurr.strName == GameLib.GetPlayerCharacterName() then
+						wndPlotBtn:FindChild("OwnedOutline."..(tCurr.nCommunityReservedPlotIndex + 1)):Show(true)
+					end
+				end
+			end
+		end
+		
+		self:UpdateCommunityControls(wndPropertyFrame:GetRadioSelButton("PlotGroup"))
+	end
+	self.tRoster = tRoster
+end
+
+function HousingRemodel:OnGuildMemberChange(guildCurr, tMember)
+	if guildCurr:GetType() ~= GuildLib.GuildType_Community then
+		return
+	end
+	
+	if not self.wndCommunitySettingsPopup:IsShown() then
+		return
+	end
+	
+	local wndPropertyFrame = self.wndCommunitySettingsPopup:FindChild("PropertyFrame")
+	
+	if tMember.nCommunityReservedPlotIndex >= 0 then
+		local wndPlotBtn = wndPropertyFrame:FindChild("Plot"..(tMember.nCommunityReservedPlotIndex + 1))
+		if wndPlotBtn ~= nil then
+			local tPlotInfo = wndPlotBtn:GetData()
+			if not tPlotInfo then
+				tPlotInfo = { strReservedBy = tMember.strName }
+				wndPlotBtn:SetData(tPlotInfo)
+			else
+				tPlotInfo.strReservedBy = tMember.strName
+			end
+
+			wndPlotBtn:FindChild("OccupiedSprite."..(tMember.nCommunityReservedPlotIndex + 1)):Show(true)
+			wndPlotBtn:FindChild("ReservedSprite."..(tMember.nCommunityReservedPlotIndex + 1)):Show(true)
+			wndPlotBtn:SetTooltip(String_GetWeaselString(Apollo.GetString("Housing_PlotReservedByTooltip"), tMember.strName))
+			
+			if tMember.strName == GameLib.GetPlayerCharacterName() then
+				wndPlotBtn:FindChild("OwnedOutline."..(tMember.nCommunityReservedPlotIndex + 1)):Show(true)
+			end
+		end
+	else
+		for ix = 1, 5 do
+			local wndPlotBtn = wndPropertyFrame:FindChild("Plot"..ix)
+			
+			local tPlotInfo = wndPlotBtn:GetData()
+			if tPlotInfo and tPlotInfo.strReservedBy == tMember.strName then
+				wndPlotBtn:FindChild("ReservedSprite."..ix):Show(false)
+				wndPlotBtn:SetTooltip("")
+				tPlotInfo.strReservedBy = nil
+			end
+		end
+	end
+
+	self:UpdateCommunityControls(wndPropertyFrame:GetRadioSelButton("PlotGroup"))
+end
+
+function HousingRemodel:OnCommunityPlacedResidenceList(tResidenceList)
+	if not self.wndCommunitySettingsPopup:IsShown() then
+		return
+	end
+	
+	local wndPropertyFrame = self.wndCommunitySettingsPopup:FindChild("PropertyFrame")
+	
+	for ix = 1, 5 do
+		local wndPlotButton = wndPropertyFrame:FindChild("Plot"..ix)
+		wndPlotButton:FindChild("OccupiedSprite."..ix):Show(false)
+		wndPlotButton:FindChild("OwnedOutline."..ix):Show(false)
+		wndPlotButton:SetTooltip("")
+		
+		local tPlotInfo = wndPlotButton:GetData()
+		if tPlotInfo then
+			tPlotInfo.strOccupiedBy = nil
+		end
+	end
+	
+	for key, tCurr in pairs(tResidenceList) do
+		local wndPlotBtn = wndPropertyFrame:FindChild("Plot"..(tCurr.nPropertyIndex + 1))
+		if wndPlotBtn ~= nil then
+			local tPlotInfo = wndPlotBtn:GetData()
+			if not tPlotInfo then
+				tPlotInfo = { strOccupiedBy = tCurr.strPlayerName }
+				wndPlotBtn:SetData(tPlotInfo)
+			else
+				tPlotInfo.strOccupiedBy = tCurr.strPlayerName
+			end
+
+					
+			wndPlotBtn:FindChild("OccupiedSprite."..(tCurr.nPropertyIndex + 1)):Show(true)
+			wndPlotBtn:SetTooltip(String_GetWeaselString(Apollo.GetString("Housing_PlotOccupiedByTooltip"), tCurr.strPlayerName))
+			
+			if tCurr ~= nil and tCurr.strPlayerName == GameLib.GetPlayerCharacterName() then
+				wndPlotBtn:FindChild("OwnedOutline."..(tCurr.nPropertyIndex + 1)):Show(true)
+				
+				if self.wndCommunitySettingsPopup:FindChild("PropertyFrame"):GetRadioSel("PlotGroup") == 0 then
+					self.wndCommunitySettingsPopup:FindChild("PropertyFrame"):SetRadioSel("PlotGroup", tCurr.nPropertyIndex + 1)
+				end
+			end
+		end
+	end
+	
+	self:UpdateCommunityControls(wndPropertyFrame:GetRadioSelButton("PlotGroup"))
 end
 
 function HousingRemodel:OnHarvestSettingsDropdownBtnCheck( wndHandler, wndControl, eMouseButton )
@@ -2188,6 +2468,35 @@ function HousingRemodel:OnPermissionsDropdownBtnUncheck( wndHandler, wndControl,
     self.wndPropertySettingsPopup:FindChild("PermissionsDropdownWindow"):Show(false)
 end
 
+function HousingRemodel:OnCommunityPermissionsBtnCheck( wndHandler, wndControl, eMouseButton )
+	self.wndCommunitySettingsPopup:FindChild("PermissionsDropdownWindow"):Show(true)
+end
+
+function HousingRemodel:OnCommunityPermissionsBtnUncheck( wndHandler, wndControl, eMouseButton )
+	self.wndCommunitySettingsPopup:FindChild("PermissionsDropdownWindow"):Show(false)
+end
+
+function HousingRemodel:OnCommunityPermissionSelectionClosed( wndHandler, wndControl, eMouseButton )
+	self.wndCommunitySettingsPopup:FindChild("PermissionsDropdownBtn"):SetCheck(false)
+end
+
+function HousingRemodel:OnCommunityPermissionsBtnChecked( wndHandler, wndControl, eMouseButton )
+	local wndDropdown = self.wndCommunitySettingsPopup:FindChild("PermissionsDropdownWindow")
+	local nPrivacyLevel = wndDropdown:GetRadioSel("PermissionsSettingsBtn")
+	local strButtonLabel = ""
+	if nPrivacyLevel == 2 then
+		HousingLib.SetCommunityPrivacyLevel(HousingLib.ResidencePrivacyLevel.Private)
+		strButtonLabel = wndDropdown:FindChild("PermissionsSettingsBtnPrivate"):GetText()
+	else
+		HousingLib.SetCommunityPrivacyLevel(HousingLib.ResidencePrivacyLevel.Public)
+		strButtonLabel = wndDropdown:FindChild("PermissionsSettingsBtnPublic"):GetText()
+	end
+
+    self.wndCommunitySettingsPopup:FindChild("PermissionsDropdownLabel"):SetText(strButtonLabel)
+	self.wndCommunitySettingsPopup:FindChild("PermissionsDropdownBtn"):SetCheck(false)
+	wndDropdown:Show(false)
+end
+
 function HousingRemodel:OnPermissionsBtnChecked( wndHandler, wndControl, eMouseButton )
 	if self.rResidence == nil then
 		return
@@ -2221,42 +2530,158 @@ function HousingRemodel:OnCommunitySettingsCancel(wndHandler, wndControl, eMouse
 	self.wndCommunitySettingsPopup:Close()
 end
 
-function HousingRemodel:OnCommunityVisitCancel(wndHandler, wndControl, eMouseButton )
-	if wndHandler:GetId() ~= wndControl:GetId() then
-		return
-	end
-
-	self.wndCommunityVisitPopup:Close()
-end
-
 function HousingRemodel:OnCommunityVisitConfirmBtn(wndHandler, wndControl, eMouseButton )
 	if wndHandler:GetId() ~= wndControl:GetId() then
 		return
 	end
+
+    HousingLib.RequestCommunityVisit()
+	self.wndCommunitySettingsPopup:Close()
+end
+
+function HousingRemodel:OnCommunityVisitSelectedConfirmBtn(wndHandler, wndControl, eMouseButton )
+	if wndHandler:GetId() ~= wndControl:GetId() then
+		return
+	end
 	
-	local iPropertyIndex = tonumber(self.wndCommunityVisitPopup:FindChild("PropertyFrame"):GetRadioSel("PlotGroup"))
+	local iPropertyIndex = tonumber(self.wndCommunitySettingsPopup:FindChild("PropertyFrame"):GetRadioSel("PlotGroup"))
 
     HousingLib.RequestCommunityPlacement(iPropertyIndex)
-	self.wndCommunityVisitPopup:Close()
+	self.wndCommunitySettingsPopup:FindChild("PlaceBtn"):FindChild("ConfirmWindow"):Show(false)
 end
 
-function HousingRemodel:OnCommunityVisitNextConfirmBtn(wndHandler, wndControl, eMouseButton )
-	if wndHandler:GetId() ~= wndControl:GetId() then
-		return
-	end
-
-    HousingLib.RequestCommunityPlacement()
-	self.wndCommunityVisitPopup:Close()
-end
-
-function HousingRemodel:OnPropertySelection(wndHandler, wndControl, eMouseButton )
+function HousingRemodel:OnPropertySelectionSettings(wndHandler, wndControl, eMouseButton )
 	if wndHandler:GetId() ~= wndControl:GetId() then
 		return
 	end
 	
-	self.wndCommunityVisitPopup:FindChild("QueueBtn"):Enable(true)
+	self:UpdateCommunityControls(wndControl)
 end
 
+function HousingRemodel:UpdateCommunityControls(wndControl)
+	if not self.wndCommunitySettingsPopup:IsShown() then
+		return
+	end
+	
+	local wndEvictBtn = self.wndCommunitySettingsPopup:FindChild("EvictResidentBtn")
+	local wndReserveBtn = self.wndCommunitySettingsPopup:FindChild("ReservePlotBtn")
+	local wndPlaceBtn = self.wndCommunitySettingsPopup:FindChild("PlaceBtn")
+	local wndRemoveBtn = self.wndCommunitySettingsPopup:FindChild("RemoveBtn")
+	
+	local bIsReserved = false
+	local bCanReserve = false
+	local bCanRevoke = false
+	local bCanPlace = true
+	local bIsPlaced = false
+	local tReservation = HousingLib.GetReservedCommunityPlotIndex()
+	
+	local tPlotInfo = wndControl and wndControl:GetData() or nil
+	if tPlotInfo ~= nil then
+		if tPlotInfo.strReservedBy ~= nil then
+			bIsReserved = true
+			bCanReserve = false
+			bCanPlace = false
+			
+			if tPlotInfo.strReservedBy == GameLib.GetPlayerCharacterName() or HousingLib.CanRevokeCommunityPlotReservations() then
+				bCanRevoke = true
+				bIsPlaced = true
+			end
+		end
+		
+		if tPlotInfo.strOccupiedBy ~= nil then
+			bCanPlace = false
+			
+			if tPlotInfo.strOccupiedBy == GameLib.GetPlayerCharacterName() then
+				bCanReserve = not bIsReserved
+				bIsPlaced = true
+			end
+		end
+	else
+		if tReservation and tReservation.bHasReservation then
+			bCanReserve = false
+			bCanPlace = false
+		else
+			bCanReserve = HousingLib.CanReserveCommunityPlot()
+		end
+	end
+	
+	wndEvictBtn:Show(bIsReserved)
+	wndReserveBtn:Show(not bIsReserved)
+	
+	wndEvictBtn:Enable(bCanRevoke)
+	wndReserveBtn:Enable(bCanReserve)
+	
+	wndPlaceBtn:Show(not bIsPlaced)
+	wndRemoveBtn:Show(bIsPlaced)
+
+	wndPlaceBtn:Enable(bCanPlace)
+	wndRemoveBtn:Enable(bIsPlaced and not bIsReserved)
+	
+	if bIsReserved then
+		if bCanRevoke then
+			wndEvictBtn:SetTooltip(Apollo.GetString("Housing_CommunityRevokeTooltip"))
+		else
+			wndEvictBtn:SetTooltip(Apollo.GetString("Housing_CommunityCannotRevokeTooltip"))
+		end
+	else
+		if bCanReserve then
+			wndReserveBtn:SetTooltip(Apollo.GetString("Housing_CommunityReserveTooltip"))
+		elseif tReservation and tReservation.bHasReservation then
+			wndReserveBtn:SetTooltip(Apollo.GetString("Housing_CommunityAlreadyReserved"))
+		else
+			wndReserveBtn:SetTooltip(Apollo.GetString("Housing_CommunityCannotReserve"))
+		end
+	end
+	
+	if bCanPlace then
+		wndPlaceBtn:SetTooltip(Apollo.GetString("Housing_CommunityPlaceTooltip"))
+	elseif tPlotInfo and tPlotInfo.strOccupiedBy == GameLib.GetPlayerCharacterName() then
+		wndPlaceBtn:SetTooltip(Apollo.GetString("Housing_CommunityAlreadyInPlot"))
+	elseif tReservation and tReservation.bHasReservation then
+		wndPlaceBtn:SetTooltip(Apollo.GetString("Housing_CommunityCannotPlace_Reserved"))
+	else
+		wndPlaceBtn:SetTooltip(Apollo.GetString("Housing_CommunityCannotPlace_Occupied"))
+	end
+end
+
+function HousingRemodel:OnReservePlotConfirmBtn(wndHandler, wndControl, eMouseButton )
+	if wndHandler:GetId() ~= wndControl:GetId() then
+		return
+	end
+	
+	local iPropertyIndex = tonumber(self.wndCommunitySettingsPopup:FindChild("PropertyFrame"):GetRadioSel("PlotGroup"))
+	
+	HousingLib.ReserveCommunityPlot(iPropertyIndex-1)
+	self.wndCommunitySettingsPopup:FindChild("ReservePlotBtn"):FindChild("ConfirmWindow"):Show(false)
+end
+
+function HousingRemodel:OnRevokePlotConfirmBtn(wndHandler, wndControl, eMouseButton )
+	if wndHandler:GetId() ~= wndControl:GetId() then
+		return
+	end
+	
+	local iPropertyIndex = tonumber(self.wndCommunitySettingsPopup:FindChild("PropertyFrame"):GetRadioSel("PlotGroup"))
+	local wndButton = self.wndCommunitySettingsPopup:FindChild("PropertyFrame"):FindChild("Plot"..iPropertyIndex)
+	if wndButton ~= nil then
+		local tMember = wndButton:GetData()
+		if tMember ~= nil and tMember.strReservedBy == GameLib.GetPlayerCharacterName() then
+			HousingLib.ReserveCommunityPlot(-1)
+		elseif tMember ~= nil then
+			HousingLib.RemoveCommunityPlotReservation(tMember.strReservedBy)
+		end
+	end
+	
+	self.wndCommunitySettingsPopup:FindChild("EvictResidentBtn"):FindChild("ConfirmWindow"):Show(false)
+end
+
+function HousingRemodel:OnCommunityRemoveResidenceConfirmBtn(wndHandler, wndControl, eMouseButton)
+	if wndHandler:GetId() ~= wndControl:GetId() then
+		return
+	end
+	
+	HousingLib.RequestCommunityRemoveResidence()
+	self.wndCommunitySettingsPopup:Close()
+end
 
 -----------------------------------------------------------------------------------------------
 -- HousingDecorate Category Dropdown functions

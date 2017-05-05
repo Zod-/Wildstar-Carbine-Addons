@@ -191,6 +191,44 @@ function Communities:OnGuildRoster(guildCurr, tRoster) -- Event from CPP
 	self.tRoster = tRoster
 end
 
+function Communities:FillMemberRow(wndGrid, nRow, tRanks, tMember)
+	local strIcon = "CRB_DEMO_WrapperSprites:btnDemo_CharInvisibleNormal"
+	if tMember.nRank == 1 then -- Special icons for guild leader and council (TEMP Placeholder)
+		strIcon = "CRB_Basekit:kitIcon_Holo_Profile"
+	elseif tMember.nRank == 2 then
+		strIcon = "CRB_Basekit:kitIcon_Holo_Actions"
+	end
+
+	local strRank = Apollo.GetString("Communities_UnknownRank")
+	if tRanks[tMember.nRank] and tRanks[tMember.nRank].strName then
+		strRank = tRanks[tMember.nRank].strName
+	end
+
+	local strTextColor = "UI_TextHoloBodyHighlight"
+	if tMember.fLastOnline ~= 0 then -- offline
+		strTextColor = "UI_BtnTextGrayNormal"
+	end
+			
+	if not self.strPlayerName then
+		self.strPlayerName = GameLib.GetPlayerUnit():GetName()
+	end
+
+	local wndNoteEditBox = self.tWndRefs.wndMain:FindChild("EditNotesEditbox")
+	if self.strPlayerName == tMember.strName and not wndNoteEditBox:IsShown() then
+		wndNoteEditBox:SetText(tMember.strNote)
+	end
+	
+	wndGrid:SetCellImage(nRow, 1, strIcon)
+	wndGrid:SetCellDoc(nRow, 2, string.format("<T Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</T>", strTextColor, tMember.strName))
+	wndGrid:SetCellDoc(nRow, 3, string.format("<T Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</T>", strTextColor, strRank))
+	wndGrid:SetCellDoc(nRow, 4, string.format("<T Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</T>", strTextColor, tMember.nLevel))
+	wndGrid:SetCellDoc(nRow, 5, string.format("<T Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</T>", strTextColor, tMember.strClass))
+	wndGrid:SetCellDoc(nRow, 6, string.format("<T Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</T>", strTextColor, self:HelperConvertToTime(tMember.fLastOnline)))
+			
+	wndGrid:SetCellDoc(nRow, 7, "<T Font=\"CRB_InterfaceSmall\" TextColor=\""..strTextColor.."\">".. FixXMLString(tMember.strNote) .."</T>")
+	wndGrid:SetCellLuaData(nRow, 7, String_GetWeaselString(Apollo.GetString("GuildRoster_ActiveNoteTooltip"), tMember.strName, Apollo.StringLength(tMember.strNote) > 0 and tMember.strNote or "N/A")) -- For tooltip
+end
+
 function Communities:BuildRosterList(guildCurr, tRoster)
 	if not guildCurr or #tRoster == 0 then
 		return
@@ -202,43 +240,9 @@ function Communities:BuildRosterList(guildCurr, tRoster)
 
 	for key, tCurr in pairs(tRoster) do
 		if self.bShowOffline or tCurr.fLastOnline == 0 then
-			local strIcon = "CRB_DEMO_WrapperSprites:btnDemo_CharInvisibleNormal"
-			if tCurr.nRank == 1 then -- Special icons for guild leader and council (TEMP Placeholder)
-				strIcon = "CRB_Basekit:kitIcon_Holo_Profile"
-			elseif tCurr.nRank == 2 then
-				strIcon = "CRB_Basekit:kitIcon_Holo_Actions"
-			end
-
-			local strRank = Apollo.GetString("Communities_UnknownRank")
-			if tRanks[tCurr.nRank] and tRanks[tCurr.nRank].strName then
-				strRank = tRanks[tCurr.nRank].strName
-			end
-
-			local strTextColor = "UI_TextHoloBodyHighlight"
-			if tCurr.fLastOnline ~= 0 then -- offline
-				strTextColor = "UI_BtnTextGrayNormal"
-			end
-			
-			if not self.strPlayerName then
-				self.strPlayerName = GameLib.GetPlayerUnit():GetName()
-			end
-
-			if self.strPlayerName == tCurr.strName then
-				self.tWndRefs.wndMain:FindChild("EditNotesEditbox"):SetText(tCurr.strNote)
-			end
-
 			local iCurrRow = wndGrid:AddRow("")
 			wndGrid:SetCellLuaData(iCurrRow, 1, tCurr)
-			wndGrid:SetCellImage(iCurrRow, 1, strIcon)
-			wndGrid:SetCellDoc(iCurrRow, 2, string.format("<T Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</T>", strTextColor, tCurr.strName))
-			wndGrid:SetCellDoc(iCurrRow, 3, string.format("<T Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</T>", strTextColor, strRank))
-			wndGrid:SetCellDoc(iCurrRow, 4, string.format("<T Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</T>", strTextColor, tCurr.nLevel))
-			wndGrid:SetCellDoc(iCurrRow, 5, string.format("<T Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</T>", strTextColor, tCurr.strClass))
-			wndGrid:SetCellDoc(iCurrRow, 6, string.format("<T Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</T>", strTextColor, self:HelperConvertPathToString(tCurr.ePathType)))
-			wndGrid:SetCellDoc(iCurrRow, 7, string.format("<T Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">%s</T>", strTextColor, self:HelperConvertToTime(tCurr.fLastOnline)))
-			
-			wndGrid:SetCellDoc(iCurrRow, 8, "<T Font=\"CRB_InterfaceSmall\" TextColor=\""..strTextColor.."\">".. FixXMLString(tCurr.strNote) .."</T>")
-			wndGrid:SetCellLuaData(iCurrRow, 8, String_GetWeaselString(Apollo.GetString("GuildRoster_ActiveNoteTooltip"), tCurr.strName, Apollo.StringLength(tCurr.strNote) > 0 and tCurr.strNote or "N/A")) -- For tooltip
+			self:FillMemberRow(wndGrid, iCurrRow, tRanks, tCurr)
 		end
 	end
 	
@@ -637,9 +641,37 @@ end
 -- OnGuildMemberChange
 -----------------------------------------------------------------------------------------------
 
-function Communities:OnGuildMemberChange( guildCurr )
+function Communities:OnGuildMemberChange( guildCurr, tMember )
+	if not self.tWndRefs.wndMain or not self.tWndRefs.wndMain:IsValid() or not self.tWndRefs.wndMain:GetData() then
+		return
+	end
+	
 	if guildCurr and guildCurr:GetType() == GuildLib.GuildType_Community  or GuildLib.GuildType_Guild then
-		self:FullRedrawOfRoster()
+		if not tMember then
+			self:FullRedrawOfRoster()
+		else
+			local wndGrid = self.tWndRefs.wndMain:FindChild("RosterScreen:RosterGrid")
+
+			local nRowCount = wndGrid:GetRowCount()
+			local nMemberRow = 0
+			for nRow=1,nRowCount do
+				local tRowData = wndGrid:GetCellLuaData(nRow, 1)
+				if tRowData and tRowData.strName == tMember.strName then
+					nMemberRow = nRow
+					break
+				end
+			end
+			
+			if nMemberRow == 0 then
+				nMemberRow = wndGrid:AddRow("")
+				wndGrid:SetCellLuaData(nMemberRow, 1, tMember)
+			end
+			
+			if nMemberRow > 0 then
+				local tRanks = guildCurr:GetRanks()
+				self:FillMemberRow(wndGrid, nMemberRow, tRanks, tMember)
+			end
+		end
 	end
 end
 
@@ -689,7 +721,7 @@ function Communities:OnGuildResult(guildCurr, strName, nRank, eResult)
 
 		-- if you've been kicked, left, or disbanded a Community and you're viewing it
 		if eResult == GuildLib.GuildResult_KickedYou and self.tWndRefs.wndMain:IsShown() then
-			self.tWndRefs.wndMain:FindChild("AlertMessage"):FindChild("MessageAlertText"):SetText(Apollo.GetString("Communities_Ouch"))
+			self.tWndRefs.wndMain:FindChild("AlertMessage"):FindChild("MessageAlertText"):SetText(Apollo.GetString("Communities_KickedAlertTitle"))
 			self.tWndRefs.wndMain:FindChild("AlertMessage"):FindChild("MessageBodyText"):SetText(String_GetWeaselString(Apollo.GetString("Communities_Kicked"), strName))
 			self.tWndRefs.wndMain:FindChild("AlertMessage"):Invoke()
 			Apollo.StartTimer("CommunityAlertDisplayTimer")
@@ -725,13 +757,9 @@ function Communities:OnCommunityInvite( strGuildName, strInvitorName, guildType 
 		self.wndCommunityInvite:Destroy()
 	end
 
-	if self:FilterRequest(strInvitorName) then
-		self.wndCommunityInvite = Apollo.LoadForm(self.xmlDoc, "CommunityInviteConfirmation", nil, self)
-		self.wndCommunityInvite:FindChild("CommunityInviteLabel"):SetText(String_GetWeaselString(Apollo.GetString("Guild_IncomingCommunityInvite"), strGuildName, strInvitorName))
-		self.wndCommunityInvite:ToFront()
-	else
-		GuildLib.Decline()
-	end
+	self.wndCommunityInvite = Apollo.LoadForm(self.xmlDoc, "CommunityInviteConfirmation", nil, self)
+	self.wndCommunityInvite:FindChild("CommunityInviteLabel"):SetText(String_GetWeaselString(Apollo.GetString("Guild_IncomingCommunityInvite"), strGuildName, strInvitorName))
+	self.wndCommunityInvite:ToFront()
 end
 
 function Communities:OnCommunityInviteAccept(wndHandler, wndControl)
@@ -744,11 +772,7 @@ end
 function Communities:OnCommunityInviteDecline() -- This can come from a variety of sources
 	GuildLib.Decline()
 	if self.wndCommunityInvite then
-		if g_InterfaceOptions and not g_InterfaceOptions.Carbine.bFilterGuildInvite then
-			self.wndCommunityInvite:FindChild("ConfirmCancel"):Show(true)
-		else
-			self.wndCommunityInvite:Destroy()
-		end
+		self.wndCommunityInvite:Destroy()
 	end
 end
 
@@ -757,20 +781,6 @@ function Communities:OnReportCommunityInviteSpamBtn()
 	self:OnCommunityInviteDecline()
 end
 
-function Communities:OnFilterDecline()
-	if self.wndCommunityInvite then
-		self.wndCommunityInvite:Destroy()
-	end
-end
-
-function Communities:OnFilterOn()
-	if g_InterfaceOptions then
-		g_InterfaceOptions.Carbine.bFilterGuildInvite = true
-	end
-	if self.wndCommunityInvite then
-		self.wndCommunityInvite:Destroy()
-	end
-end
 
 -----------------------------------------------------------------------------------------------
 -- Roster Sorting
@@ -793,8 +803,6 @@ function Communities:SortRoster(tArg, strLastClicked)
 		table.sort(tResult, function(a,b) return (a.nLevel < b.nLevel) end) -- Level we want highest to lowest
 	elseif self.tWndRefs.wndMain:FindChild("RosterSortBtnClass"):IsChecked() then
 		table.sort(tResult, function(a,b) return (a.strClass > b.strClass) end)
-	elseif self.tWndRefs.wndMain:FindChild("RosterSortBtnPath"):IsChecked() then
-		table.sort(tResult, function(a,b) return (self:HelperConvertPathToString(a.ePathType) > self:HelperConvertPathToString(b.ePathType)) end) -- TODO: Potentially expensive?
 	elseif self.tWndRefs.wndMain:FindChild("RosterSortBtnOnline"):IsChecked() then
 		table.sort(tResult, function(a,b) return (a.fLastOnline < b.fLastOnline) end)
 	elseif self.tWndRefs.wndMain:FindChild("RosterSortBtnNote"):IsChecked() then
@@ -809,8 +817,6 @@ function Communities:SortRoster(tArg, strLastClicked)
 			table.sort(tResult, function(a,b) return (a.nLevel > b.nLevel) end)
 		elseif strLastClicked == "RosterSortBtnClass" then
 			table.sort(tResult, function(a,b) return (a.strClass < b.strClass) end)
-		elseif strLastClicked == "RosterSortBtnPath" then
-			table.sort(tResult, function(a,b) return (self:HelperConvertPathToString(a.ePathType) < self:HelperConvertPathToString(b.ePathType)) end)
 		elseif strLastClicked == "RosterSortBtnOnline" then
 			table.sort(tResult, function(a,b) return (a.fLastOnline > b.fLastOnline) end)
 		elseif strLastClicked == "RosterSortBtnNote" then
@@ -828,36 +834,6 @@ end
 function Communities:OnGenerateGridTooltip(wndHandler, wndControl, eType, iRow, iColumn)
 	-- If the note column 7, draw a special tooltip
 	wndHandler:SetTooltip(self.tWndRefs.wndMain:FindChild("RosterGrid"):GetCellData(iRow + 1, 8) or "") -- TODO: Remove this hardcoded
-end
-
-function Communities:HelperConvertPathToString(ePath)
-	local strResult = ""
-	if ePath == PlayerPathLib.PlayerPathType_Soldier then
-		strResult = Apollo.GetString("PlayerPathSoldier")
-	elseif ePath == PlayerPathLib.PlayerPathType_Settler then
-		strResult = Apollo.GetString("PlayerPathSettler")
-	elseif ePath == PlayerPathLib.PlayerPathType_Explorer then
-		strResult = Apollo.GetString("PlayerPathExplorer")
-	elseif ePath == PlayerPathLib.PlayerPathType_Scientist then
-		strResult = Apollo.GetString("PlayerPathScientist")
-	end
-	return strResult
-end
-
-function Communities:FilterRequest(strInvitor)
-	if not g_InterfaceOptions.Carbine.bFilterGuildInvite then
-		
-		return true
-	end
-	
-	local bPassedFilter = false
-	
-	local tRelationships = GameLib.SearchRelationshipStatusByCharacterName(strInvitor)
-	if tRelationships and (tRelationships.tFriend or tRelationships.tAccountFriend or tRelationships.tGuilds or tRelationships.nGuildIndex) then
-		bPassedFilter = true
-	end
-	
-	return bPassedFilter
 end
 
 function Communities:HelperConvertToTime(nDays)

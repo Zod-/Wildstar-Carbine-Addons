@@ -132,7 +132,7 @@ local ktResultMap = {
 	[GuildLib.GuildResult_CannotCreateWhileInQueue] = { nType = knTypeString, value = Apollo.GetString("GuildResult_CannotCreateWhileInQueue"), arParameters = { } },
 	[GuildLib.GuildResult_RenameNotAvailable] = { nType = knTypeString, value = Apollo.GetString("GuildResult_RenameNotAvailable"), arParameters = { } },
 	[GuildLib.GuildResult_RankLacksSufficientPermissions] = { nType = knTypeFunction, value = function(bIntercepted) return bIntercepted and Apollo.GetString("GuildDesigner_NoPermissions") or Apollo.GetString("GuildResult_InsufficientPermissions") end, arParameters = { "bIntercepted" } },
-	[GuildLib.GuildResult_MustBeHomeowner] = { nType = knTypeFunction, value = Apollo.GetString("Neighbors_NotAHomeownerSelf"), arParameters = { } },
+	[GuildLib.GuildResult_MustBeHomeowner] = { nType = knTypeString, value = Apollo.GetString("Neighbors_NotAHomeownerSelf"), arParameters = { } },
 	[GuildLib.GuildResult_NotHighEnoughLevel] = { nType = knTypeFunction, value = function(eGuildType, strGuildType)
 		local strResult
 		if eGuildType and (eGuildType == GuildLib.GuildType_ArenaTeam_2v2 or eGuildType == GuildLib.GuildType_ArenaTeam_3v3 or eGuildType == GuildLib.GuildType_ArenaTeam_5v5) then
@@ -258,6 +258,8 @@ function GuildAlerts:GenerateAlert(guildSender, strName, nRank, eResult )
 		strGuildType = Apollo.GetString("Guild_GuildTypeArena")
 	elseif eGuildType == GuildLib.GuildType_WarParty then
 		strGuildType = Apollo.GetString("Guild_GuildTypeWarparty")
+	elseif eGuildType == GuildLib.GuildType_Community then
+		strGuildType = Apollo.GetString("Guild_GuildTypeCommunity")
 	else --if eGuildType == GuildLib.GuildType_Guild then
 		strGuildType = Apollo.GetString("Guild_GuildTypeGuild")
 	end

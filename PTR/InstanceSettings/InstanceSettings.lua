@@ -103,10 +103,12 @@ function InstanceSettings:OnShowDialog(tData)
 	self.nSelectedPrimeLevel = 0
 	self.bNormalIsAllowed = tData.bDifficultyNormal
 	self.bVeteranIsAllowed = tData.bDifficultyVeteran
+	self.bPrimeIsAllowed = tData.bPrimeAllowed
 	self.bScalingIsAllowed = tData.bFlagsScaling
 	self.bHasPrimeLevels = tData.bHasPrimeLevels
 	self.nMaxPrimeLevelWorld = tData.nMaxPrimeLevelWorld
 	self.nMaxPrimeLevelGroup = tData.nMaxPrimeLevelGroup
+	self.bIsRaid = tData.bIsRaid
 	self.wndMain = Apollo.LoadForm(self.xmlDoc , "InstanceSettingsForm", nil, self)
 	self.wndMain:Invoke()
 	self.bHidingInterface = false
@@ -128,9 +130,9 @@ function InstanceSettings:OnShowDialog(tData)
 	else
 		-- an existing instance
 		-- set the options above to the settings of that instance (and disable the ability to change them)
-		if tData.nExistingDifficulty == GroupLib.Difficulty.Normal then
+		if tData.nExistingDifficulty == GroupLib.Difficulty.Normal and not(tData.bIsRaid and tData.bHasPrimeLevels) then
 			self.wndMain:SetRadioSel("InstanceSettings_LocalRadioGroup_Difficulty", LuaCodeEnumDifficultyTypes.Normal)
-		elseif tData.bHasPrimeLevels then			
+		elseif tData.bHasPrimeLevels and self.bPrimeIsAllowed then			
 			self.wndMain:SetRadioSel("InstanceSettings_LocalRadioGroup_Difficulty", LuaCodeEnumDifficultyTypes.Prime)
 		else
 			self.wndMain:SetRadioSel("InstanceSettings_LocalRadioGroup_Difficulty", LuaCodeEnumDifficultyTypes.Veteran)
@@ -148,9 +150,9 @@ function InstanceSettings:OnShowDialog(tData)
 		local nLeft, nTop, nRight, nBottom = self.wndMain:GetAnchorOffsets()
 		self.wndMain:SetAnchorOffsets(nLeft, nTop, nRight, nTop + 330)
 	
-		if tData.nExistingDifficulty == GroupLib.Difficulty.Normal then
+		if tData.nExistingDifficulty == GroupLib.Difficulty.Normal and not(tData.bIsRaid and tData.bHasPrimeLevels) then
 			self.wndMain:FindChild("DifficultyNormalCallout"):SetText(Apollo.GetString("CRB_Difficulty") .. " " .. Apollo.GetString("Tooltips_Normal"))
-		elseif tData.bHasPrimeLevels then
+		elseif tData.bHasPrimeLevels and self.bPrimeIsAllowed then
 			self.wndMain:FindChild("DifficultyNormalCallout"):SetText(Apollo.GetString("CRB_Difficulty") .. " " .. String_GetWeaselString(Apollo.GetString("InstanceSettings_ExistingPrimeLevel"), tData.nExistingPrimeLevel))
 		else
 			self.wndMain:FindChild("DifficultyNormalCallout"):SetText(Apollo.GetString("CRB_Difficulty") .. " " .. Apollo.GetString("CRB_Veteran"))
@@ -188,12 +190,32 @@ function InstanceSettings:OnExitInstance()
 	GameLib.LeavePendingRemovalInstance()
 end
 
-function InstanceSettings:OnPendingWorldRemovalWarning()
+function InstanceSettings:OnPendingWorldRemovalWarning(eRemovalReason)
 	local nRemaining = GameLib.GetPendingRemovalWarningRemaining()
 	if nRemaining > 0 then
 		self:CloseForms()
 		self.wndPendingRemoval = Apollo.LoadForm(self.xmlDoc , "InstanceSettingsPendingRemoval", nil, self)
 		self.wndPendingRemoval:Invoke()
+		
+		local strText = ""
+		local strLeaveText = ""
+		if eRemovalReason == GameLib.WorldRemovalReason.GroupMembership then
+			strText = Apollo.GetString("InstanceSettings_PendingRemoval")
+			strLeaveText = Apollo.GetString("Death_ExitInstance")
+		elseif eRemovalReason == GameLib.WorldRemovalReason.KickedFromCommunity then
+			strText = Apollo.GetString("InstanceSettings_PendingRemoval_CommunityKick")
+			strLeaveText = Apollo.GetString("InstanceSettings_LeaveNow")
+		elseif eRemovalReason == GameLib.WorldRemovalReason.CommunityDisband then
+			strText = Apollo.GetString("InstanceSettings_PendingRemoval_CommunityDisband")
+			strLeaveText = Apollo.GetString("InstanceSettings_LeaveNow")
+		elseif eRemovalReason == GameLib.WorldRemovalReason.LeftCommunity then
+			strText = Apollo.GetString("InstanceSettings_PendingRemoval_LeftCommunity")
+			strLeaveText = Apollo.GetString("InstanceSettings_LeaveNow")
+		end
+		
+		self.wndPendingRemoval:FindChild("Text"):SetText(strText)
+		self.wndPendingRemoval:FindChild("LeaveButton"):SetText(strLeaveText)
+		
 		self.wndPendingRemoval:FindChild("RemovalCountdownLabel"):SetText(nRemaining)
 		self.wndPendingRemoval:SetData(nRemaining)
 		Apollo.CreateTimer("InstanceSettings_PendingRemovalTimer", 1, true)
@@ -233,18 +255,18 @@ end
 function InstanceSettings:OnNoExistingInstance()
 
 	-- difficulty settings
-	self.wndMain:FindChild("NormalDifficultyBtn"):Enable(self.bNormalIsAllowed)
+	self.wndMain:FindChild("NormalDifficultyBtn"):Enable(self.bNormalIsAllowed and not self.bIsRaid)
 	
 	self.wndMain:FindChild("VeteranDifficultyBtn"):Show(not self.bHasPrimeLevels)
 	self.wndMain:FindChild("VeteranDifficultyBtn"):Enable(not self.bHasPrimeLevels and self.bVeteranIsAllowed)
 	
 	self.wndMain:FindChild("PrimeDifficultyBtn"):Show(self.bHasPrimeLevels)
-	self.wndMain:FindChild("PrimeDifficultyBtn"):Enable(self.bHasPrimeLevels and self.bVeteranIsAllowed)
-	
-	if self.bVeteranIsAllowed and self.bHasPrimeLevels then
+	self.wndMain:FindChild("PrimeDifficultyBtn"):Enable(self.bHasPrimeLevels and self.bPrimeIsAllowed)
+
+	if self.bHasPrimeLevels and self.bPrimeIsAllowed then
 		self.wndMain:FindChild("DifficultyOptions"):SetRadioSel("InstanceSettings_LocalRadioGroup_Difficulty", LuaCodeEnumDifficultyTypes.Prime)
 		self:SetPrimeDifficultyControls()
-	elseif self.bVeteranIsAllowed then
+	elseif self.bVeteranIsAllowed and not self.bHasPrimeLevels then
 		self.wndMain:FindChild("DifficultyOptions"):SetRadioSel("InstanceSettings_LocalRadioGroup_Difficulty", LuaCodeEnumDifficultyTypes.Veteran)
 		self:SetVeteranDifficultyControls()
 	else
@@ -252,7 +274,7 @@ function InstanceSettings:OnNoExistingInstance()
 		self:SetNormalDifficultyControls()
 	end
 	
-	self.wndMain:FindChild("EnterButton"):Enable(self.bNormalIsAllowed or self.bVeteranIsAllowed)
+	self.wndMain:FindChild("EnterButton"):Enable(self.bNormalIsAllowed or self.bVeteranIsAllowed or self.bHasPrimeLevels)
 	self.wndMain:FindChild("NewInstanceSettings"):Show(true)
 	self.wndMain:FindChild("ExistingInstanceSettings"):Show(false)
 end

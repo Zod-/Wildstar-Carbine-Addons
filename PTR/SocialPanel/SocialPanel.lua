@@ -194,7 +194,10 @@ function SocialPanel:FullyDrawSplashScreen(bHide)
 	table.sort(arGuilds, function(a,b) return (self:HelperSortCirclesChannelOrder(a,b)) end)
 	local guildSelected = self.tWndRefs.wndCirclesFrame:GetChildren()[1] and self.tWndRefs.wndCirclesFrame:GetChildren()[1]:GetData() or nil
 	
-	self.tWndRefs.wndMain:FindChild("SplashHousingItemContainerFrame:HousingTabBtn2"):Enable(false)
+	local wndHousingCommunityBtn = self.tWndRefs.wndMain:FindChild("SplashHousingItemContainerFrame:HousingTabBtn2")
+	wndHousingCommunityBtn:Enable(false)
+	wndHousingCommunityBtn:SetText(Apollo.GetString("Community_CommunityHeader"))
+	
 	for key, guildCurr in pairs(arGuilds) do
 		if guildCurr:GetType() == GuildLib.GuildType_Circle then
 			nNumberOfCircles = nNumberOfCircles + 1
@@ -206,8 +209,9 @@ function SocialPanel:FullyDrawSplashScreen(bHide)
 				wndCurr:FindChild("SplashCirclesPickerBtn"):SetCheck(true)
 			end
 		elseif guildCurr:GetType() == GuildLib.GuildType_Community then
-		    self.tWndRefs.wndMain:FindChild("SplashHousingItemContainerFrame:HousingTabBtn2"):Enable(true)
-		    self.tWndRefs.wndMain:FindChild("SplashHousingItemContainerFrame:HousingTabBtn2"):SetData(guildCurr)
+		    wndHousingCommunityBtn:Enable(true)
+		    wndHousingCommunityBtn:SetData(guildCurr)
+			wndHousingCommunityBtn:SetText(String_GetWeaselString(Apollo.GetString("Community_CommunityHeaderName"), guildCurr:GetName()))
 		end
 	end
 

@@ -1217,7 +1217,7 @@ function HousingLandscape:OnHousingButtonLandscape()
 		self:ResetAll()
 		self.wndLandscape:Invoke()
         HousingLib.RequestVendorList()
-        HousingLib.RefreshUI()
+        --HousingLib.RefreshUI()
 		Apollo.StartTimer("PlotDetailRefreshTimer")
 	else
 	    self:OnCloseHousingLandscapeWindow()
