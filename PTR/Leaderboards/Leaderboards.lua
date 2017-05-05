@@ -549,9 +549,9 @@ end
 function Leaderboards:PvEPopulateInstances(eLeaderboardSelected)
 	local arMatches = {}
 	if eLeaderboardSelected == LeaderboardLib.CodeEnumLeaderboardType.PveDungeon then
-		arMatches = MatchMakingLib.GetMatchMakingEntries(MatchMakingLib.MatchType.PrimeLevelDungeon, true, false)
+		arMatches = MatchMakingLib.GetMatchMakingEntries(MatchMakingLib.MatchType.PrimeLevelDungeon, true, true)
 	else
-		arMatches = MatchMakingLib.GetMatchMakingEntries(MatchMakingLib.MatchType.PrimeLevelExpedition, true, false)
+		arMatches = MatchMakingLib.GetMatchMakingEntries(MatchMakingLib.MatchType.PrimeLevelExpedition, true, true)
 	end
 
 	self.wndMain:FindChild("Frame:PvEFrame:SubHeader:InstanceFilter:Dropdown:Container"):DestroyChildren()

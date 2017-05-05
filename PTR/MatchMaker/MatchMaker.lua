@@ -2061,7 +2061,11 @@ function MatchMaker:BuildPrimeLevelMatchButton(tblMatch, eMatchType, wndParent)
 	wndRewardIconContainer:Show(bFound)	
 	
 	if tblMatch.nPrimeLevel > 0 then
-		strText = strText .. " (" .. String_GetWeaselString(Apollo.GetString("MatchMaker_PrimeLevel"), tblMatch.nPrimeLevel) .. ")"
+		local nPrimeLevelDisplay = tblMatch.nPrimeLevel
+		if(tblMatch.nPrimeLevel > tblMatchInfo.nMaxPrimeLevel) then
+			nPrimeLevelDisplay = tblMatchInfo.nMaxPrimeLevel
+		end
+		strText = strText .. " (" .. String_GetWeaselString(Apollo.GetString("MatchMaker_PrimeLevel"), nPrimeLevelDisplay) .. ")"
 		wndSelection:Show(true)
 		wndSelection:Enable(true)
 		wndInfoButton:Enable(true)

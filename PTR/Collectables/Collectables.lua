@@ -55,6 +55,7 @@ function Collectables:OnDocLoaded()
 	Apollo.RegisterEventHandler("InterfaceMenuListHasLoaded",				"OnInterfaceMenuLoaded", self)
 	self:OnInterfaceMenuLoaded()
 
+	Apollo.RegisterEventHandler("ToggleCollectiblesWindow",					"OnToggleCollectiblesWindow", self)
 	Apollo.RegisterEventHandler("GenericEvent_ToggleCollectiblesWindow",	"OnToggleCollectiblesWindow", self)
 	Apollo.RegisterEventHandler("GenericEvent_RegisterCollectableWindow",	"RegisterAddon", self)
 	Apollo.RegisterEventHandler("GenericEvent_OpenCollectables",			"OnCollectablesOn", self)
