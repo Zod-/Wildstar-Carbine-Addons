@@ -60,14 +60,21 @@ end
 function Stuck:RedrawCooldowns()
 	if self.wndMain and self.wndMain:IsValid() and self.wndMain:IsShown() then
 		local tCooldowns = GameLib.GetStuckCooldowns()
+		
 		local nBindTime = tCooldowns[GameLib.SupportStuckAction.RecallBind].fCooldownTime
-		local nHomeTime = tCooldowns[GameLib.SupportStuckAction.RecallHouse].fCooldownTime
 		self.wndMain:FindChild("BindButton"):Enable(nBindTime == 0)
 		self.wndMain:FindChild("BindButton"):Show(GameLib.HasBindPoint())
 		self.wndMain:FindChild("BindCooldownText"):SetText(self:HelperConvertTimeToString(nBindTime))
+		
+		local nHomeTime = tCooldowns[GameLib.SupportStuckAction.RecallHouse].fCooldownTime
 		self.wndMain:FindChild("HomeButton"):Enable(nHomeTime == 0)
 		self.wndMain:FindChild("HomeButton"):Show(HousingLib.IsResidenceOwner())
 		self.wndMain:FindChild("HomeCooldownText"):SetText(self:HelperConvertTimeToString(nHomeTime))
+		
+		local nDeathTime = tCooldowns[GameLib.SupportStuckAction.RecallDeath].fCooldownTime
+		self.wndMain:FindChild("DeathButton"):Enable(nDeathTime == 0)
+		self.wndMain:FindChild("DeathCooldownText"):SetText(self:HelperConvertTimeToString(nDeathTime))
+		
 		self.wndMain:FindChild("ArrangeHorz"):ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.Middle)
 		Apollo.StartTimer("Stuck_OneSecondTimer")
 	end

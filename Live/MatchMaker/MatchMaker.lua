@@ -3393,7 +3393,13 @@ function MatchMaker:OnQueueTimer()
 			end
 		end
 		
-		local strEstimatedWait = String_GetWeaselString(Apollo.GetString("MatchMaker_WaitTimeLabel"), self:FormatWaitTime(fEstimatedWait))
+		local strEstimatedWait = ""
+		if eMatchType == MatchMakingLib.MatchType.PrimeLevelDungeon or eMatchType == MatchMakingLib.MatchType.PrimeLevelExpedition then
+			strEstimatedWait = Apollo.GetString("MatchMaker_ReservingInstance")
+		else
+			strEstimatedWait = String_GetWeaselString(Apollo.GetString("MatchMaker_WaitTimeLabel"), self:FormatWaitTime(fEstimatedWait))
+		end		
+
 		wndQueueType:FindChild("InQueue:QueueTimeLabel"):SetText(strEstimatedWait)
 	end
 end

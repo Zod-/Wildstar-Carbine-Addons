@@ -598,7 +598,7 @@ function GroupDisplay:OnRaidInfoResponse(arRaidInfo)
 		-- tRaidInfo.strDateExpireUTC is string of the full date the lock resets.
 		-- tRaidInfo.fDaysFromNow is relative time from now that the lock resets.
 
-		local strMessage = String_GetWeaselString(Apollo.GetString("Command_UsageRaidInfo"), tRaidInfo.strWorldName or "", tRaidInfo.strSavedInstanceId, tRaidInfo.strDateExpireUTC )
+		local strMessage = String_GetWeaselString(Apollo.GetString("Command_UsageRaidInfo"), tRaidInfo.strWorldName or "", tRaidInfo.nPrimeLevel, tRaidInfo.strSavedInstanceId, tRaidInfo.strDateExpireUTC )
 		ChatSystemLib.PostOnChannel( ChatSystemLib.ChatChannel_System, strMessage, "" )
 	end
 end

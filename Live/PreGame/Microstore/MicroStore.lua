@@ -48,7 +48,6 @@ function MicroStore:OnDocLoaded()
 	self.tWndRefs.wndWalletPremium = wndMain:FindChild("Framing:Header:Wallet:Currency:Premium")
 	self.tWndRefs.wndWallet = wndMain:FindChild("Framing:Header:Wallet")
 	self.tWndRefs.wndWalletTopUp = wndMain:FindChild("Framing:Header:Wallet:CurrencyContainer:TopUp")
-	self.tWndRefs.wndWalletConvert = wndMain:FindChild("Framing:Header:Wallet:CurrencyContainer:Convert")
 	self.wndTopUpReminder = wndMain:FindChild("Framing:Header:Wallet:CurrencyContainer:TopUp:TopUpBtn:TopUpReminder")
 	
 	-- Purchase
@@ -153,10 +152,6 @@ function MicroStore:UpdateCurrency()
 	self.tWndRefs.wndWalletPremium:SetAmount(monPremium, true)
 	self.tWndRefs.wndWalletAlternative:SetAmount(StorefrontLib.GetBalance(AccountItemLib.GetAlternativeCurrency()), true)
 	self.wndTopUpReminder:Show(monPremium:GetAmount() == 0)
-	
-	local arProtobuckOffers = StorefrontLib.GetProtobucksOffers()	
-	local monExternal = AccountItemLib.GetAccountCurrency(AccountItemLib.GetExternalCurrency())
-	self.tWndRefs.wndWalletConvert:Show(monExternal:GetAmount() > 0 and arProtobuckOffers ~= nil and #arProtobuckOffers > 0)
 	
 	local nNewWidth = self.tWndRefs.wndWallet:ArrangeChildrenHorz(Window.CodeEnumArrangeOrigin.LeftOrTop)
 	
@@ -452,15 +447,6 @@ function MicroStore:OnAddFundsSignal(wndHandler, wndControl, eMouseButton)
 		self.tWndRefs.wndModelDialog:Show(true)
 		PreGameLib.Event_FireGenericEvent("ShowDialog", "Funds", self.tWndRefs.wndModelDialog)
 	end
-end
-
-function MicroStore:OnConvertFundsSignal(wndHandler, wndControl, eMouseButton)
-	if wndHandler ~= wndControl then
-		return
-	end
-	
-	self.tWndRefs.wndModelDialog:Show(true)
-	PreGameLib.Event_FireGenericEvent("ShowDialog", "ConvertFunds", self.tWndRefs.wndModelDialog)
 end
 
 function MicroStore:GetCurrencyNameFromEnum(eCurrencyType)

@@ -857,6 +857,7 @@ function OptionsAddon:OnDocumentReady()
 		{wnd = self.wndTargeting:FindChild("EnemyPlayerDisplayBtn"), 			consoleVar = "spell.enemyPlayerTelegraphDisplay",				requiresRestart = false},
 		{wnd = self.wndTargeting:FindChild("EnemyPlayerBeneficialDisplayBtn"), 	consoleVar = "spell.enemyPlayerBeneficialTelegraphDisplay",		requiresRestart = false},
 		{wnd = self.wndTargeting:FindChild("EnemyPlayerDetrimentalDisplayBtn"), consoleVar = "spell.enemyPlayerDetrimentalTelegraphDisplay",		requiresRestart = false},
+		{wnd = self.wndTargeting:FindChild("EnemyPlayerDetrimentalCanDmgOnlyDisplayBtn"), consoleVar = "spell.enemyPlayerDetrimentalCanDmgOnlyTelegraphDisplay",		requiresRestart = false},
 		{wnd = self.wndTargeting:FindChild("AllyDisplayBtn"), 					consoleVar = "spell.allyTelegraphDisplay",						requiresRestart = false},
 		{wnd = self.wndTargeting:FindChild("PartyAllyDisplayBtn"), 				consoleVar = "spell.partyMemberAllyTelegraphDisplay",			requiresRestart = false},
 		{wnd = self.wndTargeting:FindChild("AllyNPCDisplayBtn"), 				consoleVar = "spell.allyNPCTelegraphDisplay",					requiresRestart = false},
@@ -1997,6 +1998,7 @@ function OptionsAddon:OnMappedOptionsCheckboxHider(wndHandler, wndControl)
 	self.wndTargeting:FindChild("EnemyNPCDetrimentalDisplayBtn"):Enable(self.wndTargeting:FindChild("EnemyDisplayBtn"):IsChecked())
 	self.wndTargeting:FindChild("EnemyPlayerBeneficialDisplayBtn"):Enable(self.wndTargeting:FindChild("EnemyDisplayBtn"):IsChecked())
 	self.wndTargeting:FindChild("EnemyPlayerDetrimentalDisplayBtn"):Enable(self.wndTargeting:FindChild("EnemyDisplayBtn"):IsChecked())
+	self.wndTargeting:FindChild("EnemyPlayerDetrimentalCanDmgOnlyDisplayBtn"):Enable(self.wndTargeting:FindChild("EnemyDisplayBtn"):IsChecked())
 
 	self.wndTargeting:FindChild("PartyAllyDisplayBtn"):Enable(self.wndTargeting:FindChild("AllyDisplayBtn"):IsChecked())
 	self.wndTargeting:FindChild("AllyNPCBeneficialDisplayBtn"):Enable(self.wndTargeting:FindChild("AllyDisplayBtn"):IsChecked())

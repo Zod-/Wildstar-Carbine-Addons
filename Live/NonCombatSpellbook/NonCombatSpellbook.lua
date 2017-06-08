@@ -189,8 +189,8 @@ function NonCombatSpellbook:ShowTab()
 		return (aData.strName or aData.strName) < (bData.strName or bData.strName)
 	end
 
-	self.wndEntryContainer:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop, SortFunction(a,b))
-	self.wndEntryContainerMisc:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop, SortFunction(a,b))
+	self.wndEntryContainer:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop, SortFunction)
+	self.wndEntryContainerMisc:ArrangeChildrenVert(Window.CodeEnumArrangeOrigin.LeftOrTop, SortFunction)
 	self.wndEntryContainer:SetText(#self.wndEntryContainer:GetChildren() == 0 and Apollo.GetString("NCSpellbook_NoResultsAvailable") or "")
 	self.wndEntryContainerMisc:SetText(#self.wndEntryContainerMisc:GetChildren() == 0 and Apollo.GetString("NCSpellbook_NoResultsAvailable") or "")
 

@@ -67,16 +67,11 @@ function AddFunds:OnStoreCatalogReady()
 	if self.tDialogWndRefs.wndMain ~= nil and self.tDialogWndRefs.wndMain:IsValid() and self.tDialogWndRefs.wndMain:IsShown() then
 		self:BuildFundsPackages()
 		self.tDialogWndRefs.wndContainer:SetVScrollPos(0)
-		
-		if self.tDialogWndRefs.wndConvertFunds:IsShown() then
-			self:ConvertFundsDialog()
-		end
 	end
 end
 
 function AddFunds:ShowHelper(wndToShow)
 	self.tDialogWndRefs.wndAddFunds:Show(self.tDialogWndRefs.wndAddFunds == wndToShow)
-	self.tDialogWndRefs.wndConvertFunds:Show(self.tDialogWndRefs.wndConvertFunds == wndToShow)
 	self.tDialogWndRefs.wndConfirmed:Show(self.tDialogWndRefs.wndConfirmed == wndToShow)
 end
 
@@ -91,7 +86,7 @@ function AddFunds:OnCloseDialog()
 end
 
 function AddFunds:OnShowDialog(strDialogName, wndParent)
-	if strDialogName ~= "Funds" and strDialogName ~= "ConvertFunds" then
+	if strDialogName ~= "Funds" then
 		if self.tDialogWndRefs.wndMain ~= nil and self.tDialogWndRefs.wndMain:IsValid() then
 			self.tDialogWndRefs.wndMain:Show(false)
 		end
@@ -115,22 +110,6 @@ function AddFunds:OnShowDialog(strDialogName, wndParent)
 		self.tDialogWndRefs.wndFinalizeBtn = wndMain:FindChild("Choice:AddFunds:CCOnFile:FinalizeBtn")
 		self.tDialogWndRefs.wndNoCCOnFile = wndMain:FindChild("Choice:AddFunds:NoCCOnFile")
 		
-		-- Convert
-		self.tDialogWndRefs.wndConvertFunds = wndMain:FindChild("Choice:ConvertFunds")
-		self.tDialogWndRefs.wndConvertFundsTitle = wndMain:FindChild("Choice:ConvertFunds:Title")
-		self.tDialogWndRefs.wndConvertSourceCurrencyName = wndMain:FindChild("Choice:ConvertFunds:SourceDisplayContainer:SourceCurrency:IconContainer:CurrencyName")
-		self.tDialogWndRefs.wndConvertSourceCurrencyIcon = wndMain:FindChild("Choice:ConvertFunds:SourceDisplayContainer:SourceCurrency:IconContainer:IconFrame:Icon")
-		self.tDialogWndRefs.wndConvertSourceCurrencyAmount = wndMain:FindChild("Choice:ConvertFunds:SourceDisplayContainer:SourceCurrency:IconContainer:IconFrame:Amount")
-		self.tDialogWndRefs.wndConvertDestinationCurrencyName = wndMain:FindChild("Choice:ConvertFunds:DestinationDisplayContainer:DestinationCurrency:IconContainer:CurrencyName")
-		self.tDialogWndRefs.wndConvertDestinationCurrencyIcon = wndMain:FindChild("Choice:ConvertFunds:DestinationDisplayContainer:DestinationCurrency:IconContainer:IconFrame:Icon")
-		self.tDialogWndRefs.wndConvertDestinationCurrencyAmount = wndMain:FindChild("Choice:ConvertFunds:DestinationDisplayContainer:DestinationCurrency:IconContainer:IconFrame:Amount")
-		self.tDialogWndRefs.wndConvertEditBox = wndMain:FindChild("Choice:ConvertFunds:MainSliderBGContainer:ConversionLeftNumberBoxBG:ConversionLeftEditBox")
-		self.tDialogWndRefs.wndConvertSliderLeft = wndMain:FindChild("Choice:ConvertFunds:MainSliderBGContainer:SliderLeft")
-		self.tDialogWndRefs.wndConvertMainSlider = wndMain:FindChild("Choice:ConvertFunds:MainSliderBGContainer:MainSlider")
-		self.tDialogWndRefs.wndConvertSliderRight = wndMain:FindChild("Choice:ConvertFunds:MainSliderBGContainer:SliderRight")
-		self.tDialogWndRefs.wndConvertSliderTitle = wndMain:FindChild("Choice:ConvertFunds:MainSliderBGContainer:Title")
-		self.tDialogWndRefs.wndConvertFinalizeBtn = wndMain:FindChild("Choice:ConvertFunds:FinalizeBtn")
-		
 		-- Confirmed
 		self.tDialogWndRefs.wndConfirmed = wndMain:FindChild("Choice:Confirmed")
 		self.tDialogWndRefs.wndConfirmedAnimation = wndMain:FindChild("Choice:Confirmed:PurchaseConfirmAnimation")
@@ -139,8 +118,6 @@ function AddFunds:OnShowDialog(strDialogName, wndParent)
 	
 	if strDialogName == "Funds" then
 		self:AddFundsDialog()
-	elseif strDialogName == "ConvertFunds" then
-		self:ConvertFundsDialog()
 	end
 	self.tDialogWndRefs.wndMain:Show(true)
 end
@@ -155,15 +132,6 @@ function AddFunds:ChoiceFundsDialog()
 	if arProtobuckOffers == nil or #arProtobuckOffers == 0 or monExternal:GetAmount() == 0 then
 		self:AddFundsDialog()
 	end
-end
-
-function AddFunds:OnChoiceConvertFunds(wndHandler, wndControl)
-	if wndHandler ~= wndControl then
-		return
-	end
-	
-	self:ConvertFundsDialog()
-	self:ShowHelper(self.tDialogWndRefs.wndConvertFunds)
 end
 
 function AddFunds:OnChoicePurchase(wndHandler, wndControl)
@@ -319,151 +287,6 @@ function AddFunds:OnPurchaseNeedsFundsTopUpBtnSignal(wndHandler, wndControl, eMo
 	
 	PreGameLib.Event_FireGenericEvent("RequestContinueOffer")
 	PreGameLib.Event_FireGenericEvent("RequestTopupDialog")
-end
-
----------------------------------------------------------------------------------------------------
--- Convert Funds
----------------------------------------------------------------------------------------------------
-
-function AddFunds:ConvertFundsDialog()
-	self.tDialogWndRefs.wndFraming:SetSprite("MTX:UI_BK3_MTX_BG_PopupBlue")
-
-	local eExternalCurrency = AccountItemLib.GetExternalCurrency()
-	local monExternal = AccountItemLib.GetAccountCurrency(eExternalCurrency)
-	local tExternalInfo = monExternal:GetDenomInfo()[1]
-	
-	local arProtobuckOffers = StorefrontLib.GetProtobucksOffers()
-	if arProtobuckOffers == nil or #arProtobuckOffers == 0 then
-		self:AddFundsDialog()
-		return
-	end
-	
-	local tProtobuckOffer = arProtobuckOffers[1]
-	
-	self.tDialogWndRefs.wndConvertSourceCurrencyName:SetText(PreGameLib.String_GetWeaselString(tExternalInfo.strName))
-	self.tDialogWndRefs.wndConvertSourceCurrencyIcon:SetSprite(tExternalInfo.strSprite)
-	self.tDialogWndRefs.wndConvertSourceCurrencyAmount:SetText(monExternal:GetAmount() - tProtobuckOffer.tPrice.monPrice:GetAmount())
-	
-	local ePremiumCurrency = AccountItemLib.GetPremiumCurrency()
-	local monPremium = AccountItemLib.GetAccountCurrency(ePremiumCurrency)
-	local tPremiumInfo = monPremium:GetDenomInfo()[1]
-	
-	self.tDialogWndRefs.wndConvertDestinationCurrencyName:SetText(PreGameLib.String_GetWeaselString(tPremiumInfo.strName))
-	self.tDialogWndRefs.wndConvertDestinationCurrencyIcon:SetSprite(tPremiumInfo.strSprite)
-	self.tDialogWndRefs.wndConvertDestinationCurrencyAmount:SetText(tProtobuckOffer.nCount)
-	
-	self.tDialogWndRefs.wndConvertEditBox:SetText(tProtobuckOffer.tPrice.monPrice:GetAmount())
-	self.tDialogWndRefs.wndConvertMainSlider:SetMinMax(1, monExternal:GetAmount(), 1)
-	self.tDialogWndRefs.wndConvertMainSlider:SetValue(tProtobuckOffer.tPrice.monPrice:GetAmount())
-	self:OnConvertFundsSliderChanged(self.tDialogWndRefs.wndConvertMainSlider, self.tDialogWndRefs.wndConvertMainSlider, self.tDialogWndRefs.wndConvertMainSlider:GetValue())
-	
-	self:ShowHelper(self.tDialogWndRefs.wndConvertFunds)
-end
-
-function AddFunds:OnConvertFundsSubBtn(wndHandler, wndControl)
-	if wndHandler ~= wndControl then
-		return
-	end
-	
-	self.tDialogWndRefs.wndConvertMainSlider:SetValue(self.tDialogWndRefs.wndConvertMainSlider:GetValue() - 1)
-	self:OnConvertFundsSliderChanged(self.tDialogWndRefs.wndConvertMainSlider, self.tDialogWndRefs.wndConvertMainSlider, self.tDialogWndRefs.wndConvertMainSlider:GetValue())
-end
-
-function AddFunds:OnConvertFundsAddBtn(wndHandler, wndControl)
-	if wndHandler ~= wndControl then
-		return
-	end
-	
-	self.tDialogWndRefs.wndConvertMainSlider:SetValue(self.tDialogWndRefs.wndConvertMainSlider:GetValue() + 1)
-	self:OnConvertFundsSliderChanged(self.tDialogWndRefs.wndConvertMainSlider, self.tDialogWndRefs.wndConvertMainSlider, self.tDialogWndRefs.wndConvertMainSlider:GetValue())
-end
-
-function AddFunds:OnConvertFundsSliderChanged(wndHandler, wndControl, fNewValue, fOldValue)
-	self.tDialogWndRefs.wndConvertFinalizeBtn:SetData(fNewValue)
-	
-	local nCaretPosition = self.tDialogWndRefs.wndConvertEditBox:GetSel()
-	self.tDialogWndRefs.wndConvertEditBox:SetText(tostring(fNewValue))
-	self.tDialogWndRefs.wndConvertEditBox:SetSel(nCaretPosition.cpBegin, nCaretPosition.cpEnd)
-	
-	local arProtobuckOffers = StorefrontLib.GetProtobucksOffers()
-	local tProtobuckOffer = arProtobuckOffers[1]
-	
-	local strFinalizeBtn = PreGameLib.String_GetWeaselString(Apollo.GetString("Storefront_ConvertFunds"),
-		{
-			name = self:GetCurrencyNameFromEnum(AccountItemLib.GetExternalCurrency()),
-			count = fNewValue * tProtobuckOffer.tPrice.monPrice:GetAmount()
-		},
-		{
-			name = self:GetCurrencyNameFromEnum(AccountItemLib.GetPremiumCurrency()),
-			count = fNewValue * tProtobuckOffer.nCount
-		})
-	self.tDialogWndRefs.wndConvertFinalizeBtn:SetText(strFinalizeBtn)
-	
-	
-	local eExternalCurrency = AccountItemLib.GetExternalCurrency()
-	local monExternal = AccountItemLib.GetAccountCurrency(eExternalCurrency)
-	
-	self.tDialogWndRefs.wndConvertSourceCurrencyAmount:SetText(monExternal:GetAmount() - (tProtobuckOffer.tPrice.monPrice:GetAmount() * fNewValue))
-	
-	self.tDialogWndRefs.wndConvertDestinationCurrencyAmount:SetText(tProtobuckOffer.nCount * fNewValue)
-end
-
-function AddFunds:OnConvertFundsEditBoxChanged(wndHandler, wndControl, strText)
-	local nValue = tonumber(strText)
-	
-	if nValue ~= nil then
-		if self.tDialogWndRefs.wndConvertMainSlider:GetMin() <= nValue and nValue <= self.tDialogWndRefs.wndConvertMainSlider:GetMax() then
-			self.tDialogWndRefs.wndConvertMainSlider:SetValue(nValue)
-			self:OnConvertFundsSliderChanged(self.tDialogWndRefs.wndConvertMainSlider, self.tDialogWndRefs.wndConvertMainSlider, self.tDialogWndRefs.wndConvertMainSlider:GetValue())
-		else
-			self.tDialogWndRefs.wndConvertEditBox:SetText(self.tDialogWndRefs.wndConvertMainSlider:GetValue())
-		end
-	else
-		self.tDialogWndRefs.wndConvertEditBox:SetText(self.tDialogWndRefs.wndConvertMainSlider:GetValue())
-	end
-end
-
-function AddFunds:OnConvertFundsEditBoxGainedFocus(wndHandler, wndControl)
-	local nStrValueLength = Apollo.StringLength(self.tDialogWndRefs.wndConvertEditBox:GetText())
-	self.tDialogWndRefs.wndConvertEditBox:SetSel(0, nStrValueLength)
-end
-
-function AddFunds:OnConvertFundsFinalize(wndHandler, wndControl)
-	if wndHandler ~= wndControl then
-		return
-	end
-	
-	local arProtobuckOffers = StorefrontLib.GetProtobucksOffers()
-	local tProtobuckOffer = arProtobuckOffers[1]
-	local nAmount = self.tDialogWndRefs.wndConvertMainSlider:GetValue()
-	
-	Sound.Play(Sound.PlayUIMTXStorePurchase)
-	local promisePurchaseResult = Promise.New()
-	Promise.NewFromGameEvent("StorePurchaseVirtualCurrencyPackageResult", self):Then(function(bSuccess, eReason)
-		if bSuccess then
-			promisePurchaseResult:Resolve()
-		else
-			promisePurchaseResult:Reject(eReason)
-		end
-	end)
-	
-	local this = self
-	
-	Promise.WhenAll(promisePurchaseResult, Promise.NewFromGameEvent("AccountCurrencyChanged", self))
-	:Then(function()
-		PreGameLib.Event_FireGenericEvent("HideFullDialog")
-		this:ShowHelper(self.tDialogWndRefs.wndConfirmed)
-		
-		this.tDialogWndRefs.wndFraming:SetSprite("MTX:UI_BK3_MTX_BG_PopupGreen")
-		this.tDialogWndRefs.wndConfirmedAnimation:SetSprite("BK3:UI_BK3_OutlineShimmer_anim_nocycle")
-		this.tDialogWndRefs.wndConfirmedAnimationInner:SetSprite("CRB_WindowAnimationSprites:sprWinAnim_BirthLargeTemp")
-	end)
-	:Catch(function(eReason)
-		PreGameLib.Event_FireGenericEvent("RequestFullDialogPrompt", Apollo.GetString("Storefront_PurchaseFailedDialogHeader"), Apollo.GetString("Storefront_PurchaseFailedDialogBody"))
-	end)
-	
-	PreGameLib.Event_FireGenericEvent("RequestFullDialogSpinner", Apollo.GetString("Storefront_PurchaseInProgressThanks"))
-	StorefrontLib.PurchaseOffer(tProtobuckOffer.nId, tProtobuckOffer.tPrice.monPrice:Multiply(nAmount), StorefrontLib.kProtobucksCategoryId, nAmount)
 end
 
 ---------------------------------------------------------------------------------------------------
