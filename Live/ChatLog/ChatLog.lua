@@ -98,6 +98,7 @@ local karChannelTypeToColor = -- TODO Merge into one table like this
 	[ChatSystemLib.ChatChannel_NexusGerman]		= { Channel = "ChannelNexus", 			},
 	[ChatSystemLib.ChatChannel_NexusFrench]		= { Channel = "ChannelNexus", 			},
 	[ChatSystemLib.ChatChannel_AccountWhisper] 	= { Channel = "ChannelAccountWisper", 	},
+	[ChatSystemLib.ChatChannel_Community]		= { Channel = "ChannelCommunity",		},
 }
 
 local ktChatResultOutputStrings =
@@ -370,6 +371,7 @@ function ChatLog:OnDocumentReady()
 		[ChatSystemLib.ChatChannel_NexusGerman]		= ApolloColor.new("ChatNexus"),
 		[ChatSystemLib.ChatChannel_NexusFrench]		= ApolloColor.new("ChatNexus"),
 		[ChatSystemLib.ChatChannel_AccountWhisper]	= ApolloColor.new("ChatAccountWisper"),
+		[ChatSystemLib.ChatChannel_Community]		= ApolloColor.new("ChatCommunity"),
 	}
 
 	self.tAllViewedChannels = {}

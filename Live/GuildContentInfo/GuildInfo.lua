@@ -443,7 +443,11 @@ end
 
 function GuildInfo:OnGuildName(guildUpdated)
 	if guildUpdated and guildUpdated:GetChannel() then
-		guildUpdated:GetChannel():Post(String_GetWeaselString(Apollo.GetString("Guild_NameChanged"), guildUpdated:GetName() ))
+		if guildUpdated:GetType() == GuildLib.GuildType_Community then
+			guildUpdated:GetChannel():Post(String_GetWeaselString(Apollo.GetString("Community_NameChanged"), guildUpdated:GetName() ))
+		else
+			guildUpdated:GetChannel():Post(String_GetWeaselString(Apollo.GetString("Guild_NameChanged"), guildUpdated:GetName() ))
+		end
 	end
 end
 

@@ -92,6 +92,8 @@ function HousingList:BuildList()
 	self.tWndRefs.wndRecallButton:Enable(false)
 	self.tWndRefs.wndDeleteButton:Enable(false)
 	
+	wndDecorList:FindChild("RecallAllBtn1"):Enable(HousingLib.CanCrateAllDecor())
+	
 	local strName = string.format("%s: %s", Apollo.GetString("CRB_Housing"), Apollo.GetString("HousingList_Header"))
 	Event_FireGenericEvent("WindowManagementAdd", {wnd = wndDecorList, strName = strName})
 end
@@ -175,6 +177,7 @@ function HousingList:OnConfirmCrateAll(wndControl, wndHandler)
 	self:BuildList()
     self.tWndRefs.wndDecorList:Invoke()
     self:ResetPopups()
+	self:ShowHousingListWindow()
 end
 
 ---------------------------------------------------------------------------------------------------

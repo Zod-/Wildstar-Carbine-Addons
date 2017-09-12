@@ -190,12 +190,32 @@ function InstanceSettings:OnExitInstance()
 	GameLib.LeavePendingRemovalInstance()
 end
 
-function InstanceSettings:OnPendingWorldRemovalWarning()
+function InstanceSettings:OnPendingWorldRemovalWarning(eRemovalReason)
 	local nRemaining = GameLib.GetPendingRemovalWarningRemaining()
 	if nRemaining > 0 then
 		self:CloseForms()
 		self.wndPendingRemoval = Apollo.LoadForm(self.xmlDoc , "InstanceSettingsPendingRemoval", nil, self)
 		self.wndPendingRemoval:Invoke()
+		
+		local strText = ""
+		local strLeaveText = ""
+		if eRemovalReason == GameLib.WorldRemovalReason.GroupMembership then
+			strText = Apollo.GetString("InstanceSettings_PendingRemoval")
+			strLeaveText = Apollo.GetString("Death_ExitInstance")
+		elseif eRemovalReason == GameLib.WorldRemovalReason.KickedFromCommunity then
+			strText = Apollo.GetString("InstanceSettings_PendingRemoval_CommunityKick")
+			strLeaveText = Apollo.GetString("InstanceSettings_LeaveNow")
+		elseif eRemovalReason == GameLib.WorldRemovalReason.CommunityDisband then
+			strText = Apollo.GetString("InstanceSettings_PendingRemoval_CommunityDisband")
+			strLeaveText = Apollo.GetString("InstanceSettings_LeaveNow")
+		elseif eRemovalReason == GameLib.WorldRemovalReason.LeftCommunity then
+			strText = Apollo.GetString("InstanceSettings_PendingRemoval_LeftCommunity")
+			strLeaveText = Apollo.GetString("InstanceSettings_LeaveNow")
+		end
+		
+		self.wndPendingRemoval:FindChild("Text"):SetText(strText)
+		self.wndPendingRemoval:FindChild("LeaveButton"):SetText(strLeaveText)
+		
 		self.wndPendingRemoval:FindChild("RemovalCountdownLabel"):SetText(nRemaining)
 		self.wndPendingRemoval:SetData(nRemaining)
 		Apollo.CreateTimer("InstanceSettings_PendingRemovalTimer", 1, true)

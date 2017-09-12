@@ -204,7 +204,7 @@ function LandscapeProposedControl:set(tItemData, iPlot, strVendorOrCrate)
 	local pltPlot = HousingLib.GetPlot(iPlot)
     local bIsBuilding = pltPlot ~= nil and pltPlot:IsBuilding() or false
     local bHaveEnoughCash = tItemData.bAreCostRequirementsMet
-    local bEnableButton = not bIsBuilding and bNotUnique and (bHaveEnoughCash or strVendorOrCrate == "crate")
+    local bEnableButton = not bIsBuilding and bNotUnique and (bHaveEnoughCash or strVendorOrCrate == "crate") and tItemData.kUpsellLink == 0
     self:HandlePlaceButton(iPlot, bEnableButton)
     self.wndBuyBtn:Enable(bEnableButton)
     self.wndBuyBtn:Show(not self.wndPlaceBtn:IsShown())
@@ -1217,7 +1217,7 @@ function HousingLandscape:OnHousingButtonLandscape()
 		self:ResetAll()
 		self.wndLandscape:Invoke()
         HousingLib.RequestVendorList()
-        HousingLib.RefreshUI()
+        --HousingLib.RefreshUI()
 		Apollo.StartTimer("PlotDetailRefreshTimer")
 	else
 	    self:OnCloseHousingLandscapeWindow()
@@ -2065,9 +2065,20 @@ function HousingLandscape:HelperChooseTitleColor(tItemData)
 	local crColor = kcrEnabledColor
 	
 	if tItemData ~= nil then
-		if not tItemData.bAreCostRequirementsMet then
+		if not tItemData.bAreCostRequirementsMet or tItemData.kUpsellLink ~= 0 then
 			crColor = kcrDisabledColor
-		end	
+		end
+
+		if tItemData.tFlags.bIsUnique then
+			local nPlots = HousingLib.GetResidence():GetPlotCount()
+			for idx = 1, nPlots do
+				local pltPlot = HousingLib.GetPlot(idx)
+				if pltPlot:GetPlugItemId() == tItemData.nId then
+					crColor = kcrDisabledColor
+					break
+				end
+			end
+		end
 	end
 
 	return crColor

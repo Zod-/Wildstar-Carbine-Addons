@@ -55,8 +55,6 @@ function ServiceTokenConfirmation:OnDocLoaded()
 	self.timer = nil
 	self.spellId = nil
 	self.retCode = false
-	self.nCurrentServiceTokens = nil
-	self.nRequiredServiceTokens = nil
 end
 
 
@@ -94,11 +92,6 @@ function ServiceTokenConfirmation:InvokeConfirmationWindow(tData)
 
 	self:OnClose(true)--Close current confirmation to make new confirmation.
 
-	self.nRequiredServiceTokens = 0
-	if tData.monCost then
-		self.nRequiredServiceTokens = tData.monCost:GetAmount()
-	end
-
 	if tData.wndParent then
 		local wndServiceTokenConfirmationForm = tData.wndParent:FindChild("ServiceTokenConfirmationForm")
 		if wndServiceTokenConfirmationForm then
@@ -115,7 +108,13 @@ function ServiceTokenConfirmation:InvokeConfirmationWindow(tData)
 	-- Setup window contents
 	self.wndMain:FindChild("ConfirmationText"):SetText(tData.strConfirmation)
 	self.wndMain:FindChild("Price"):SetAmount(tData.monCost)
-	self.wndMain:FindChild("Amount"):SetAmount(AccountItemLib.GetAccountCurrency(AccountItemLib.CodeEnumAccountCurrency.ServiceToken))
+	
+	if tData.monCost:IsAccountCurrencyType() then
+		self.wndMain:FindChild("Amount"):SetAmount(AccountItemLib.GetAccountCurrency(tData.monCost:GetAccountCurrencyType()))
+	else
+		self.wndMain:FindChild("Amount"):SetAmount(GameLib.GetPlayerCurrency(tData.monCost:GetMoneyType()))
+	end
+	
 	self.wndMain:FindChild("ConfirmBtn"):SetActionData(unpack(tData.tActionData))
 	
 	self:OnCurrencyChanged()
@@ -130,16 +129,29 @@ function ServiceTokenConfirmation:OnCurrencyChanged()
 	end
 
 	-- Display Current Service Tokens
-	self.nCurrentServiceTokens = AccountItemLib.GetAccountCurrency(AccountItemLib.CodeEnumAccountCurrency.ServiceToken):GetAmount()
-		
-	-- Set color based on if you have enough service tokens
-	if self.nRequiredServiceTokens > self.nCurrentServiceTokens then
+	local nCurrentAmount = 0
+	if self.tConfirmationData.monCost:IsAccountCurrencyType() then
+		nCurrentAmount = AccountItemLib.GetAccountCurrency(self.tConfirmationData.monCost:GetAccountCurrencyType()):GetAmount()
+	else
+		nCurrentAmount = GameLib.GetPlayerCurrency(self.tConfirmationData.monCost:GetMoneyType()):GetAmount()
+	end
+
+	-- Set color based on if you have enough currency
+	if self.tConfirmationData.monCost:GetAmount() > nCurrentAmount then
 		self.wndMain:FindChild("Price"):SetTextColor(ApolloColor.new("UI_WindowErrorText"))
-		self.wndMain:FindChild("ConfirmBtn"):Show(false)
-		self.wndMain:FindChild("BuyBtn"):Show(true)
+		
+		if self.tConfirmationData.monCost:GetAccountCurrencyType() == AccountItemLib.CodeEnumAccountCurrency.ServiceToken then
+			self.wndMain:FindChild("ConfirmBtn"):Show(false)
+			self.wndMain:FindChild("BuyBtn"):Show(true)
+		else
+			self.wndMain:FindChild("ConfirmBtn"):Show(true)
+			self.wndMain:FindChild("ConfirmBtn"):Enable(false)
+			self.wndMain:FindChild("BuyBtn"):Show(false)
+		end
 	else
 		self.wndMain:FindChild("Price"):SetTextColor(ApolloColor.new("UI_TextHoloBodyCyan"))
 		self.wndMain:FindChild("ConfirmBtn"):Show(true)
+		self.wndMain:FindChild("ConfirmBtn"):Enable(true)
 		self.wndMain:FindChild("BuyBtn"):Show(false)
 	end
 end

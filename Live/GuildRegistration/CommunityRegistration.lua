@@ -41,17 +41,16 @@ function CommunityRegistration:OnDocumentReady()
 	end
 	
 	Apollo.RegisterEventHandler("CommunityRegistrarOpen", 		"OnCommunityRegistrarOpen", self)
-	Apollo.RegisterEventHandler("CharacterEntitlementUpdate",	"OnEntitlementUpdate", self)
-	Apollo.RegisterEventHandler("AccountEntitlementUpdate",		"OnEntitlementUpdate", self)
-	Apollo.RegisterEventHandler("StoreLinksRefresh",				"RefreshStoreLink", self)
+	Apollo.RegisterEventHandler("CommunityRegistrarClose",		"OnClose", self)
+	Apollo.RegisterEventHandler("StoreLinksRefresh",			"RefreshStoreLink", self)
+	Apollo.RegisterEventHandler("GuildResultInterceptResponse", "OnGuildResultInterceptResponse", self)
+	Apollo.RegisterTimerHandler("ErrorMessageTimer", 			"OnErrorMessageTimer", self)
+	Apollo.RegisterTimerHandler("SuccessfulMessageTimer", 		"OnSuccessfulMessageTimer", self)
+	Apollo.RegisterEventHandler("UpdateRewardProperties",		"UpdateButtons", self)
+	Apollo.RegisterEventHandler("ServiceTokenClosed_Community",	"OnServiceTokenDialogClosed", self)
 end
 
 function CommunityRegistration:Initialize(wndParent)
-	Apollo.RegisterEventHandler("GuildResultInterceptResponse", "OnGuildResultInterceptResponse", self)
-	Apollo.RegisterTimerHandler("ErrorMessageTimer", 		"OnErrorMessageTimer", self)
-	Apollo.RegisterTimerHandler("SuccessfulMessageTimer", 	"OnSuccessfulMessageTimer", self)
-
-
 	if self.wndMain then
 		self.wndMain:Destroy()
 	end
@@ -60,7 +59,8 @@ function CommunityRegistration:Initialize(wndParent)
 	self.wndCommunityRegAlert 	= self.wndMain:FindChild("AlertMessage")
 	self.wndCommunityRegName 	= self.wndMain:FindChild("CommunityRegistrationWnd"):FindChild("GuildNameString")
 	self.wndRegisterCommunityBtn 	= self.wndMain:FindChild("CommunityRegistrationWnd"):FindChild("RegisterBtn")
-	self.wndMain:FindChild("UnlockCommunityBtn"):SetTooltipForm(Apollo.LoadForm(self.xmlDoc, "UnlockCommunityTooltip", nil, self))
+	self.wndRegisterServiceTokenBtn = self.wndMain:FindChild("CommunityRegistrationWnd"):FindChild("RegisterServiceTokenBtn")
+	self.wndUnlockCommunityBtn		= self.wndMain:FindChild("CommunityRegistrationWnd"):FindChild("UnlockBtn")
 
 	-- TODO Refactor below, we can just look up the info when the create button is hit
 	self.tCreate =
@@ -73,7 +73,6 @@ function CommunityRegistration:Initialize(wndParent)
 	}
 	
 	self.wndMain:FindChild("CreditCost"):SetMoneySystem(Money.CodeEnumCurrencyType.Credits)
-	self.wndMain:FindChild("CreditCurrent"):SetMoneySystem(Money.CodeEnumCurrencyType.Credits)
 	self:RefreshStoreLink()
 end
 
@@ -90,13 +89,27 @@ function CommunityRegistration:OnCommunityRegistrarOpen(wndParent)
 end
 
 function CommunityRegistration:OnClose()
-	Apollo.StopTimer("LeftCommunityMessageTimer")
-	Apollo.StopTimer("SuccessfulMessageTimer")
-	Apollo.StopTimer("ErrorMessageTimer")
+	if self.wndMain ~= nil and self.wndMain:IsValid() then
+		self.wndMain:Close()
+	end
+end
 
-	self.wndCommunityRegAlert:Show(false)
+function CommunityRegistration:OnWindowClosed(wndHandler, wndControl)
+	if self.wndMain ~= nil and self.wndMain:IsValid() then
+		Apollo.StopTimer("LeftCommunityMessageTimer")
+		Apollo.StopTimer("SuccessfulMessageTimer")
+		Apollo.StopTimer("ErrorMessageTimer")
 
-	self.wndMain:FindChild("CommunityRegistrationWnd"):Show(false)
+		self.wndMain:Destroy()
+		self.wndMain = nil
+		self.wndCommunityRegAlert = nil
+		self.wndCommunityRegName = nil
+		self.wndRegisterCommunityBtn = nil
+		self.wndRegisterServiceTokenBtn = nil
+		self.tCreate = {}
+			
+		Event_CancelCommunityRegistration()
+	end
 end
 
 -----------------------------------------------------------------------------------------------
@@ -112,9 +125,14 @@ function CommunityRegistration:OnFullRedrawOfRegistration()
 	self:HelperClearCommunityRegFocus()
 	self:UpdateCommunityRegOptions()
 	
-	self.wndMain:FindChild("CreditCost"):SetAmount(GuildLib.GetCreateCost(GuildLib.GuildType_Community))
-	self.wndMain:FindChild("CreditCurrent"):SetAmount(GameLib.GetPlayerCurrency(Money.CodeEnumCurrencyType.Credits):GetAmount(), true)
-
+	local monAlternateCost = GuildLib.GetAlternateCreateCost(GuildLib.GuildType_Community)
+	if monAlternateCost then
+		self.wndRegisterServiceTokenBtn:FindChild("ServiceTokenCost"):SetAmount(monAlternateCost)
+	else
+		self.wndRegisterServiceTokenBtn:Show(false)
+	end
+	
+	self.wndRegisterCommunityBtn:FindChild("CreditCost"):SetAmount(GuildLib.GetCreateCost(GuildLib.GuildType_Community))
 	self.wndMain:FindChild("CommunityRegistrationWnd"):Show(true)
 end
 
@@ -142,7 +160,25 @@ function CommunityRegistration:UpdateCommunityRegOptions()
 	--see if the Guild can be submitted
 	local bHasName = self:HelperCheckForEmptyString(self.wndCommunityRegName:GetText())
 	local bNameValid = GameLib.IsTextValid( self.wndCommunityRegName:GetText(), GameLib.CodeEnumUserText.GuildName, eProfanityFilter)
-	self.wndRegisterCommunityBtn:Enable(bHasName and bNameValid and GuildLib.CanCreate(GuildLib.GuildType_Community))
+	local bCanCreate = bHasName and bNameValid and GuildLib.CanCreate(GuildLib.GuildType_Community)
+	
+	local bCanAfford = true
+	if GameLib.GetPlayerCurrency(Money.CodeEnumCurrencyType.Credits):GetAmount() < GuildLib.GetCreateCost(GuildLib.GuildType_Community):GetAmount() then
+		bCanAfford = false
+	end
+	
+	self.wndRegisterCommunityBtn:Enable(bCanCreate and bCanAfford)
+	
+	local monAlternateCost = GuildLib.GetAlternateCreateCost(GuildLib.GuildType_Community)
+	if monAlternateCost then
+		local monAmountAvailable = AccountItemLib.GetAccountCurrency(monAlternateCost:GetAccountCurrencyType())
+		if monAmountAvailable and monAmountAvailable:GetAmount() >= monAlternateCost:GetAmount() then
+			bCanAfford = true
+		else
+			bCanAfford = false
+		end
+	end
+	self.wndRegisterServiceTokenBtn:Enable(bCanCreate and bCanAfford)
 end
 
 function CommunityRegistration:HelperCheckForEmptyString(strText) -- make sure there's a valid string
@@ -156,28 +192,35 @@ end
 
 function CommunityRegistration:OnCommunityRegBtn(wndHandler, wndControl)
 	local tGuildInfo = self.tCreate -- TODO Refactor
-	local arGuldResultsExpected = { GuildLib.GuildResult_Success,  GuildLib.GuildResult_AtMaxGuildCount, GuildLib.GuildResult_InvalidGuildName, 
+	local arGuldResultsExpected = { GuildLib.GuildResult_Success,  GuildLib.GuildResult_AtMaxCommunityCount, GuildLib.GuildResult_InvalidGuildName, 
 									 GuildLib.GuildResult_GuildNameUnavailable, GuildLib.GuildResult_NotEnoughRenown, GuildLib.GuildResult_NotEnoughCredits,
 									 GuildLib.GuildResult_InsufficientInfluence, GuildLib.GuildResult_NotHighEnoughLevel, GuildLib.GuildResult_YouJoined,
 									 GuildLib.GuildResult_YouCreated, GuildLib.GuildResult_MaxArenaTeamCount, GuildLib.GuildResult_MaxWarPartyCount,
 									 GuildLib.GuildResult_AtMaxCircleCount, GuildLib.GuildResult_VendorOutOfRange }
 
+	local bUseAlternateCost = wndControl == self.wndRegisterServiceTokenBtn
+	
 	Event_FireGenericEvent("GuildResultInterceptRequest", tGuildInfo.eGuildType, self.wndMain, arGuldResultsExpected )
-	GuildLib.Create(tGuildInfo.strName, tGuildInfo.eGuildType, tGuildInfo.strMaster, tGuildInfo.strCouncil, tGuildInfo.strMember)
-
-	self:HelperClearCommunityRegFocus()
-	self.wndRegisterCommunityBtn:Enable(false)
-	self.wndMain:FindChild("CommunityRegistrationWnd"):Show(false)
-	self:OnClose()
-	--need to reset info, because next time a circle is created, if the any field isn't updated, it will remain the same it was last circle
-	self.tCreate =
+	
+	local monCreateCost = GuildLib.GetCreateCost(tGuildInfo.eGuildType)
+	if bUseAlternateCost then
+		monCreateCost = GuildLib.GetAlternateCreateCost(tGuildInfo.eGuildType)
+	end
+	
+	local wndConfirmationOverlay = self.wndMain:FindChild("ConfirmationOverlay")
+	
+	local tConfirmationData =
 	{
-		strName 		= "",
-		eGuildType 		= GuildLib.GuildType_Community,
-		strMaster 		= kstrDefaultMaster,
-		strCouncil 		= kstrDefaultCouncil,
-		strMember 		= kstrDefaultMember
+		monCost = monCreateCost,
+		wndParent = wndConfirmationOverlay,
+		strConfirmation = String_GetWeaselString(Apollo.GetString("Community_CreateConfirm"), tGuildInfo.strName),
+		tActionData = { GameLib.CodeEnumConfirmButtonType.PurchaseCommunity, tGuildInfo.strName, bUseAlternateCost },
+		strEventName = "ServiceTokenClosed_Community",
 	}
+	wndConfirmationOverlay:Show(true)
+	Event_FireGenericEvent("GenericEvent_ServiceTokenPrompt", tConfirmationData)
+	
+	self:HelperClearCommunityRegFocus()
 end
 
 function CommunityRegistration:OnGuildResultInterceptResponse( guildCurr, eGuildType, eResult, wndRegistration, strAlertMessage )
@@ -190,17 +233,48 @@ function CommunityRegistration:OnGuildResultInterceptResponse( guildCurr, eGuild
 		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_System, strAlertMessage, "")
 		return
 	end
-
-	self.wndCommunityRegAlert:FindChild("MessageBodyText"):SetText(strAlertMessage)
+	
+	local wndOverlay = self.wndMain:FindChild("ConfirmationOverlay")
+	if wndOverlay then
+		wndOverlay:Show(false)
+	end
+	
 	self.wndCommunityRegAlert:Show(true)
-	if eResult == GuildLib.GuildResult_Success or eResult == GuildLib.GuildResult_YouCreated or eResult == GuildLib.GuildResult_YouJoined then
+	if eResult == GuildLib.GuildResult_YouCreated then
+		self.wndCommunityRegAlert:FindChild("MessageBodyText"):SetText(String_GetWeaselString(Apollo.GetString("GuildResult_CommunityCreated")))
 		self.wndCommunityRegAlert:FindChild("MessageAlertText"):SetTextColor(ApolloColor.new("UI_WindowTextTextPureGreen"))
 		self.wndCommunityRegAlert:FindChild("MessageAlertText"):SetText(Apollo.GetString("GuildResult_Success"))
-		Apollo.CreateTimer("SuccessfulMessageTimer", 3.00, false)
+		Apollo.CreateTimer("SuccessfulMessageTimer", 10.00, false)
+	elseif eResult == GuildLib.GuildResult_Success or eResult == GuildLib.GuildResult_YouJoined then
+		self.wndCommunityRegAlert:FindChild("MessageBodyText"):SetText(strAlertMessage)
+		self.wndCommunityRegAlert:FindChild("MessageAlertText"):SetTextColor(ApolloColor.new("UI_WindowTextTextPureGreen"))
+		self.wndCommunityRegAlert:FindChild("MessageAlertText"):SetText(Apollo.GetString("GuildResult_Success"))
+		Apollo.CreateTimer("SuccessfulMessageTimer", 5.00, false)
 	else
+		self.wndCommunityRegAlert:FindChild("MessageBodyText"):SetText(strAlertMessage)
 		self.wndCommunityRegAlert:FindChild("MessageAlertText"):SetTextColor(ApolloColor.new("ConTough"))
 		self.wndCommunityRegAlert:FindChild("MessageAlertText"):SetText(Apollo.GetString("Error"))
-		Apollo.CreateTimer("ErrorMessageTimer", 3.00, false)
+		Apollo.CreateTimer("ErrorMessageTimer", 5.00, false)
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_System, strAlertMessage, "")
+	end
+	
+	local arGuldResultsExpected = { GuildLib.GuildResult_Success,  GuildLib.GuildResult_AtMaxCommunityCount, GuildLib.GuildResult_InvalidGuildName, 
+									 GuildLib.GuildResult_GuildNameUnavailable, GuildLib.GuildResult_NotEnoughRenown, GuildLib.GuildResult_NotEnoughCredits,
+									 GuildLib.GuildResult_InsufficientInfluence, GuildLib.GuildResult_NotHighEnoughLevel, GuildLib.GuildResult_YouJoined,
+									 GuildLib.GuildResult_YouCreated, GuildLib.GuildResult_MaxArenaTeamCount, GuildLib.GuildResult_MaxWarPartyCount,
+									 GuildLib.GuildResult_AtMaxCircleCount, GuildLib.GuildResult_VendorOutOfRange }
+									
+	Event_FireGenericEvent("GuildResultInterceptRequest", eGuildType, nil, arGuldResultsExpected )
+end
+
+function CommunityRegistration:OnServiceTokenDialogClosed(strParent)
+	if not self.wndMain then
+		return
+	end
+	
+	local wndParent = self.wndMain:FindChild(strParent)
+	if wndParent then
+		wndParent:Show(false)
 	end
 end
 
@@ -212,28 +286,25 @@ function CommunityRegistration:OnErrorMessageTimer()
 	self:OnClose()
 end
 
-function CommunityRegistration:OnEntitlementUpdate(tEntitlementInfo)
+function CommunityRegistration:UpdateButtons()
 	if not self.wndMain then
 		return
 	end
-
+	
 	local bCanCreate = GuildLib.CanCreate(GuildLib.GuildType_Community)
-	if tEntitlementInfo.nEntitlementId == AccountItemLib.CodeEnumEntitlement.Signature or tEntitlementInfo.nEntitlementId == AccountItemLib.CodeEnumEntitlement.Free or tEntitlementInfo.nEntitlementId == AccountItemLib.CodeEnumEntitlement.FullGuildsAccess then
-		
-		self.wndRegisterCommunityBtn:Show(bCanCreate or not self.bStoreLinkValid)
-		self.wndRegisterCommunityBtn:Enable(bCanCreate)
-		self.wndMain:FindChild("UnlockCommunityBtn"):Show(not bCanCreate and self.bStoreLinkValid)
-	end
-	local wndRegisterBtnTooltip = self.wndMain:FindChild("RegisterBtnTooltip")
-	wndRegisterBtnTooltip:Show(not bCanCreate)
-	if not bCanCreate then
-		wndRegisterBtnTooltip:SetTooltipForm(Apollo.LoadForm(self.xmlDoc, "UnlockCommunityTooltip", nil, self))
-	end
+	
+	self.wndUnlockCommunityBtn:Show(self.bStoreLinkValid and not bCanCreate)
+	self.wndRegisterCommunityBtn:Show(bCanCreate or not self.bStoreLinkValid)
+	self.wndRegisterServiceTokenBtn:Show(bCanCreate or not self.bStoreLinkValid)
+	
+	self.wndUnlockCommunityBtn:Enable(not bCanCreate)
+	self.wndRegisterCommunityBtn:Enable(bCanCreate)
+	self.wndRegisterServiceTokenBtn:Enable(bCanCreate)
 end
 
 function CommunityRegistration:RefreshStoreLink()
 	self.bStoreLinkValid = StorefrontLib.IsLinkValid(StorefrontLib.CodeEnumStoreLink.Signature)
-	self:OnEntitlementUpdate( { nEntitlementId = AccountItemLib.CodeEnumEntitlement.FullGuildsAccess } )
+	self:UpdateButtons()
 end
 
 function CommunityRegistration:OnUnlockCommunity()

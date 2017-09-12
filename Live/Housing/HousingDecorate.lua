@@ -137,6 +137,7 @@ function HousingDecorate:OnLoad()
 	self.wndBuyToCrateButton		= self.wndDecorate:FindChild("BuyToCrateBtn")
 	self.wndBuyToCrateBtnConfirm	= self.wndDecorate:FindChild("BuyToCrateBtnConfirm")
 	self.wndDeleteButton 			= self.wndDecorate:FindChild("DeleteBtn")
+	self.wndDonateButton 			= self.wndDecorate:FindChild("DonateBtn")
 	self.wndCancelButton 			= self.wndDecorate:FindChild("CancelBtn")
 	self.wndCashDecorate 			= self.wndDecorate:FindChild("CashWindow")
 	self.wndExtHeaderWindow 		= self.wndDecorate:FindChild("ExtHeaderWindow")
@@ -180,6 +181,7 @@ function HousingDecorate:OnLoad()
 	
 	self.wndBuyButton:Show(false)
 	self.wndDeleteButton:Enable(false)
+	self.wndDonateButton:Enable(false)
 	self.wndCancelButton:Enable(false)
 	self.wndIntClearSearchBtn:Show(false)
     self.wndExtClearSearchBtn:Show(false)
@@ -344,6 +346,16 @@ function HousingDecorate:ResetPopups()
 	    self.wndDecorMsgFrame = nil
 		self.bWaitingForLink = false
     end
+	
+    if self.wndDonateCommunityDecorFrame ~= nil then
+	    self.wndDonateCommunityDecorFrame:Destroy()
+	    self.wndDonateCommunityDecorFrame = nil
+    end
+	
+	if self.wndDonateCommunityDecorConfirmFrame ~= nil then
+		self.wndDonateCommunityDecorConfirmFrame:Destroy()
+	    self.wndDonateCommunityDecorConfirmFrame = nil
+	end
 end 
 
 ---------------------------------------------------------------------------------------------------
@@ -442,8 +454,13 @@ function HousingDecorate:PrepUi(idPropertyInfo, idZone, bPlayerIsInside)
 	self.bIsWarplot = HousingLib.GetResidence():IsWarplotResidence()
 	
 	if self.bIsWarplot then
+		self.wndDecorate:FindChild("CrateAssets:TitleFrame:TitleFrame"):SetText(Apollo.GetString("CRB_Crate"))
 		self.wndDecorate:FindChild("VendorAssets:TitleFrame:TitleFrame"):SetText(Apollo.GetString("HousingDecorate_WarplotVendorLabel"))
+	elseif HousingLib.GetResidence():IsCommunityResidence() then
+		self.wndDecorate:FindChild("CrateAssets:TitleFrame:TitleFrame"):SetText(Apollo.GetString("HousingDecorate_CommunityCrate"))
+		self.wndDecorate:FindChild("VendorAssets:TitleFrame:TitleFrame"):SetText(Apollo.GetString("HousingDecorate_CommunityVendor"))
 	else
+		self.wndDecorate:FindChild("CrateAssets:TitleFrame:TitleFrame"):SetText(Apollo.GetString("CRB_Crate"))
 		self.wndDecorate:FindChild("VendorAssets:TitleFrame:TitleFrame"):SetText(Apollo.GetString("HousingDecorate_VendorLabel"))
 	end
 end
@@ -494,6 +511,7 @@ end
 function HousingDecorate:OnInvalidHookSelect()
 	self.wndBuyButton:Show(false)
 	self.wndDeleteButton:Enable(false)
+	self.wndDonateButton:Enable(false)
 	self.wndCancelButton:Enable(false)
 	self.wndBuyBtnConfirm:Show(false)
 end
@@ -540,6 +558,8 @@ function HousingDecorate:OnDecoratePreview(wndControl, wndHandler) -- attaching 
             self.wndBuyButton:Show(self.bCanPlaceHere)
             self.wndCancelButton:Enable(true)
             self.wndDeleteButton:Enable(false)
+			self.wndDonateButton:Enabled(false)
+			self.wndDonateButton:Show(false)
             
             -- prune the list to remove any plug types that don't match this decor  
             local nCurrentSelection = self.wndListView:GetCurrentRow() 
@@ -822,6 +842,7 @@ function HousingDecorate:ShowDecorateWindow(bClear)
     if self.bIsVendor then
 		self.wndBuyButton:SetText(Apollo.GetString("HousingDecorate_Buy"))
 		self.wndDeleteButton:Show(false)
+		self.wndDonateButton:Show(false)
         self.wndVendorList:Show(true)
         self.wndDecorate:FindChild("StructureList"):Show(false) 
         self.wndListView = self.wndDecorate:FindChild("VendorList")
@@ -833,7 +854,11 @@ function HousingDecorate:ShowDecorateWindow(bClear)
         self.tDecorList = HousingLib.GetDecorCatalogList(strSearchText)
     else
   		self.wndBuyButton:SetText(Apollo.GetString("HousingDecorate_Place"))
-  		self.wndDeleteButton:Show(HousingLib.IsOnMyResidence())
+
+		local resResidence = HousingLib.GetResidence()
+  		self.wndDeleteButton:Show(resResidence and resResidence:CanDeleteDecor() or false)
+		self.wndDonateButton:Show(HousingLib.IsOnMyResidence() and HousingLib.HasCommunity())
+		self.wndDonateButton:Enable(false)
 		self.wndVendorList:Show(false)
         self.wndDecorate:FindChild("StructureList"):Show(true)
         self.wndListView = self.wndDecorate:FindChild("StructureList")
@@ -1003,6 +1028,7 @@ function HousingDecorate:OnHookDecorPlaced(decorPlaced)
     self.bCanPlaceHere = bCanAfford and validPlacement
     self.wndBuyButton:Show(self.bCanPlaceHere)
     self.wndDeleteButton:Enable(false)
+    self.wndDonateButton:Enable(false)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1026,6 +1052,7 @@ function HousingDecorate:OnFreePlaceDecorPlaced(decorPlaced)
     self.bCanPlaceHere = bCanAfford and bThereIsRoom and bValidPlacement
     self.wndBuyButton:Show(self.bCanPlaceHere)
     self.wndDeleteButton:Enable(false)
+    self.wndDonateButton:Enable(false)
 end
 
 
@@ -1043,9 +1070,9 @@ function HousingDecorate:OnFreePlaceDecor_FromVendor() -- free placing from vend
 			Sound.Play(Sound.PlayUIHousingHardwareAddition)
 			self.decorPreview = decorPreview
 			self:OnActivateDecorIcon(self.decorPreview)
-            self.wndBuyButton:Show(self.bCanPlaceHere)
 			self.wndCancelButton:Enable(true)
 			self.wndDeleteButton:Enable(false)
+			self.wndDonateButton:Enable(false)
 			self:ShowItems(self.wndListView, self.tDecorList, 0)
 			
 			local idColorShift = 0
@@ -1061,7 +1088,7 @@ function HousingDecorate:OnFreePlaceDecor_FromVendor() -- free placing from vend
 			self.wndBuyBtnConfirm:Show(idColorShift ~= 0 and self.decorPreview ~= nil)
 			self.wndBuyToCrateBtnConfirm:Show(idColorShift ~= 0 and self.decorPreview == nil)
 			self.wndBuyToCrateButton:Show(idColorShift == 0 and self.decorPreview == nil)
-			self.wndBuyButton:Show(idColorShift == 0 and self.decorPreview ~= nil)
+			self.wndBuyButton:Show(idColorShift == 0 and self.bCanPlaceHere)
 			
 			local bUseTokens = self.wndDecorate:FindChild("VendorAssets:BGV_MessageBackerBase:Container:Right:ColorShiftPrices:TokenBtn"):IsChecked()
 			self.wndBuyBtnConfirm:SetActionData(GameLib.CodeEnumConfirmButtonType.PurchaseDecorColorShift, false, self.decorPreview, bUseTokens)
@@ -1090,6 +1117,8 @@ function HousingDecorate:OnFreePlaceDecor_FromCrate()
 			self.wndBuyButton:Show(self.bCanPlaceHere)
 			self.wndCancelButton:Enable(true)
 			self.wndDeleteButton:Enable(false)
+			self.wndDonateButton:Enable(false)
+			self.wndDonateButton:Show(false)
 			self:ShowItems(self.wndListView, self.tDecorList, 0)
 			
 			self.wndDecorColorShiftIcon:Show(not self.bIsWarplot and not self.decorPreview:IsPreview())
@@ -1471,6 +1500,37 @@ function HousingDecorate:OnDestroyDecorAccept(handler, control)
 end
 
 ---------------------------------------------------------------------------------------------------
+function HousingDecorate:OnDonateDecorConfirmExit()
+    if self.wndDonateCommunityDecorConfirmFrame ~= nil then
+        self.wndDonateCommunityDecorConfirmFrame:Destroy()
+        self.wndDonateCommunityDecorConfirmFrame = nil
+    end
+end
+
+---------------------------------------------------------------------------------------------------
+function HousingDecorate:OnDonateDecorExit()
+    self:ResetPopups()
+end
+
+---------------------------------------------------------------------------------------------------
+function HousingDecorate:OnDonateDecorAccept(handler, control)
+	local nRow = self.wndListView:GetCurrentRow()
+	if nRow ~= nil then
+		local tItemData = self.wndListView:GetCellData( nRow, 1 )
+		if tItemData ~= nil then
+			local nCount = 1
+			for idx = 1, self.nDestroyCrateDecorCurrValue do 
+				local idLow = tItemData.tDecorItems[idx].nDecorId
+				local idHi = tItemData.tDecorItems[idx].nDecorIdHi
+				HousingLib.GetResidence():DonateDecorToCommunityFromCrate(idLow, idHi)
+			end
+		end
+	end 
+
+	self:ResetPopups()
+end
+
+---------------------------------------------------------------------------------------------------
 function HousingDecorate:OnOpenDestroyDecorControl(decorDelete, bFromCrate)
 	self.bFromCrate = bFromCrate
 	self.decorToDelete = decorDelete
@@ -1480,6 +1540,17 @@ function HousingDecorate:OnOpenDestroyDecorControl(decorDelete, bFromCrate)
 	self.wndDestroyDecorFrame:Show(true)
 	self.wndDestroyDecorFrame:ToFront()
 end
+
+---------------------------------------------------------------------------------------------------
+function HousingDecorate:OnOpenDonateCommunityDecorControl(decorDelete)
+	self.decorToDelete = decorDelete
+	if self.wndDonateCommunityDecorConfirmFrame == nil or not self.wndDonateCommunityDecorConfirmFrame:IsValid() then
+		self.wndDonateCommunityDecorConfirmFrame = Apollo.LoadForm(self.xmlDoc, "DonateCommunityDecorConfirmWindow", nil, self)
+	end
+	self.wndDonateCommunityDecorConfirmFrame:Show(true)
+	self.wndDonateCommunityDecorConfirmFrame:ToFront()
+end
+
 
 ---------------------------------------------------------------------------------------------------
 function HousingDecorate:OnFreePlaceDestroyBtn()
@@ -1502,6 +1573,24 @@ function HousingDecorate:OnDeleteBtn()
 	        self.nDestroyCrateDecorTotal = nCount
 	        self.nDestroyCrateDecorCurrValue = 1
 	        self.wndDestroyCrateDecorFrame:FindChild("DecorTotal"):SetText(String_GetWeaselString(Apollo.GetString("Achievements_ProgressBarProgress"), self.nDestroyCrateDecorCurrValue, self.nDestroyCrateDecorTotal))
+	    end
+	end
+end
+
+---------------------------------------------------------------------------------------------------
+function HousingDecorate:OnDonateDecorToCommunityBtn()
+	local nRow = self.wndListView:GetCurrentRow()
+	if nRow ~= nil then
+		local nCount = self.wndListView:GetCellData( nRow, 2 )
+		if nCount ~= nil and nCount > 0 then
+		    if self.wndDonateCommunityDecorFrame == nil or not self.wndDonateCommunityDecorFrame:IsValid() then
+		        self.wndDonateCommunityDecorFrame = Apollo.LoadForm(self.xmlDoc, "PopupDonateCommunityDecor", nil, self)
+		    end
+		    self.wndDonateCommunityDecorFrame:Show(true)
+	        self.wndDonateCommunityDecorFrame:ToFront()
+	        self.nDestroyCrateDecorTotal = nCount
+	        self.nDestroyCrateDecorCurrValue = 1
+	        self.wndDonateCommunityDecorFrame:FindChild("DecorTotal"):SetText(String_GetWeaselString(Apollo.GetString("Achievements_ProgressBarProgress"), self.nDestroyCrateDecorCurrValue, self.nDestroyCrateDecorTotal))
 	    end
 	end
 end
@@ -1587,6 +1676,35 @@ function HousingDecorate:OnIncDestroyDecorCount()
 	end    
 end
 
+---------------------------------------------------------------------------------------------------
+function HousingDecorate:OnDonateCommunityDecor()
+    self:OnOpenDonateCommunityDecorControl(nil, true)
+end
+
+---------------------------------------------------------------------------------------------------
+function HousingDecorate:OnDecDonateDecorCount()
+    self.nDestroyCrateDecorCurrValue = self.nDestroyCrateDecorCurrValue - 1
+    if self.nDestroyCrateDecorCurrValue < 1 then
+        self.nDestroyCrateDecorCurrValue = 1
+    end
+    
+    if self.wndDonateCommunityDecorFrame ~= nil then
+        self.wndDonateCommunityDecorFrame:FindChild("DecorTotal"):SetText(String_GetWeaselString(Apollo.GetString("Achievements_ProgressBarProgress"), self.nDestroyCrateDecorCurrValue, self.nDestroyCrateDecorTotal))
+    end    
+end
+
+---------------------------------------------------------------------------------------------------
+function HousingDecorate:OnIncDonateDecorCount()
+    self.nDestroyCrateDecorCurrValue = self.nDestroyCrateDecorCurrValue + 1
+    if self.nDestroyCrateDecorCurrValue > self.nDestroyCrateDecorTotal then
+        self.nDestroyCrateDecorCurrValue = self.nDestroyCrateDecorTotal
+    end
+    
+    if self.wndDonateCommunityDecorFrame ~= nil then       
+	    self.wndDonateCommunityDecorFrame:FindChild("DecorTotal"):SetText(String_GetWeaselString(Apollo.GetString("Achievements_ProgressBarProgress"), self.nDestroyCrateDecorCurrValue, self.nDestroyCrateDecorTotal))
+	end    
+end
+
 -----------------------------------------------------------------------------------------------
 -- DecorateItemList Functions
 -----------------------------------------------------------------------------------------------
@@ -1622,7 +1740,17 @@ function HousingDecorate:OnDecorateListItemChange(wndControl, wndHandler, nX, nY
 	self.wndBuyToCrateBtnConfirm:Enable(idItem ~= 0 and bCanAfford)
 	self.wndBuyToCrateBtnConfirm:Show(self.bIsVendor and idColorShiftToCheck ~= 0)
 	
-	self.wndDeleteButton:Enable(HousingLib.IsOnMyResidence())
+	local resResidence = HousingLib.GetResidence()
+	local bCanDonate = false
+	if not self.bIsVendor and tItemData.tDecorItems[1] then
+		local idLow = tItemData.tDecorItems[1].nDecorId
+		local idHi = tItemData.tDecorItems[1].nDecorIdHi
+		bCanDonate = resResidence:CanDonateDecorToCommunity(idLow, idHi)
+	end
+	
+	self.wndDeleteButton:Enable(resResidence and resResidence:CanDeleteDecor() or false)
+	self.wndDonateButton:Enable(idItem ~= 0 and HousingLib.IsOnMyResidence() and bCanDonate)
+	self.wndDonateButton:Show(HousingLib.IsOnMyResidence() and HousingLib.HasCommunity())
 	
 	if idItem ~= 0 then
 		self.wndPreview:FindChild("ModelWindow"):SetAnimated(true)
@@ -1635,7 +1763,9 @@ function HousingDecorate:OnDecorateListItemChange(wndControl, wndHandler, nX, nY
 		local strName = tItemData.strName
 		if idColorShiftToCheck ~= 0 then
 			local tColorShift = HousingLib.GetDecorColorInfo(idColorShiftToCheck)
-			strName = String_GetWeaselString(Apollo.GetString("HousingDecorList_NameWithColor"), strName, tColorShift.strName)
+			if tColorShift then
+				strName = String_GetWeaselString(Apollo.GetString("HousingDecorList_NameWithColor"), strName, tColorShift.strName)
+			end
 		end
 		
 		self.wndPreviewContainer:FindChild("Right:Name"):SetAML(string.format('<P TextColor=\"UI_TextHoloTitle\" Font=\"CRB_Header11\" Align="Center">%s</P>', strName))
@@ -1711,13 +1841,15 @@ function HousingDecorate:ShowItems(wndControl, tItemList, idPrune)
 		local crWhite = CColor.new(1.0, 1.0, 1.0, 1.0)
 		--local crGrey = CColor.new(22/255, 71/255, 84/255, 1.0)
 		local crGrey = CColor.new(0, 0, 0, 1.0)
-
+		
         if #tItemList > 0 then
             if self.decorPreview and not self.decorPreview:IsPreview() and not self.bIsVendor then
-                self.wndDeleteButton:Enable(HousingLib.IsOnMyResidence())
+				local resResidence = HousingLib.GetResidence()
+                self.wndDeleteButton:Enable(resResidence and resResidence:CanDeleteDecor() or false)
             end
         else
             self.wndDeleteButton:Enable(false)
+            self.wndDonateButton:Enable(false)
             return
         end
 
@@ -1814,7 +1946,9 @@ function HousingDecorate:ShowItems(wndControl, tItemList, idPrune)
 						local strName = tItemData.strName
 						if idColorShift ~= 0 then
 							local tColorShift = HousingLib.GetDecorColorInfo(idColorShift)
-							strName = String_GetWeaselString(Apollo.GetString("HousingDecorList_NameWithColor"), strName, tColorShift.strName)
+							if tColorShift then
+								strName = String_GetWeaselString(Apollo.GetString("HousingDecorList_NameWithColor"), strName, tColorShift.strName)
+							end
 						end
 						
 						local i = wndControl:AddRow("" .. strName, "", tItemData)
@@ -1856,6 +1990,16 @@ function HousingDecorate:ReselectPreviousItemById(wndControl)
 			wndControl:SetCurrentRow(idx)
 			self.wndBuyToCrateButton:Enable(true)
 			wndControl:EnsureCellVisible(idx, 1)
+			
+			local resResidence = HousingLib.GetResidence()
+			local bCanDonate = false
+			if not self.bIsVendor and tItemData.tDecorItems[1] then
+				local idLow = tItemData.tDecorItems[1].nDecorId
+				local idHi = tItemData.tDecorItems[1].nDecorIdHi
+				bCanDonate = resResidence:CanDonateDecorToCommunity(idLow, idHi)
+			end
+			self.wndDonateButton:Enable(HousingLib.IsOnMyResidence() and HousingLib.HasCommunity() and bCanDonate)
+			
 			--If tItemData.eCurrencyType and tItemData.eGroupCurrencyType are both nil then it came from previewing a crated item, which doesn't show currencies.
 			if tItemData.eCurrencyType and tItemData.eGroupCurrencyType then
 				local eCurrencyType = tItemData.eCurrencyType

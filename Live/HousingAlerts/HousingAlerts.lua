@@ -47,6 +47,8 @@ local ktHousingSimpleResultStrings =
 	[HousingLib.HousingResult_Neighbor_IgnoredByPlayer] 	= Apollo.GetString("Neighbors_IgnoredByPlayer"),
 	[HousingLib.HousingResult_Neighbor_MissingEntitlement] 	= Apollo.GetString("Neighbors_MissingEntitlement"),
 	[HousingLib.HousingResult_Neighbor_PrivilegeRestricted] = Apollo.GetString("Neighbors_PrivilegeRestricted"),
+
+	[HousingLib.HousingResult_CommunityNotFound] = Apollo.GetString("Housing_CommunityNotFound"),
 }
  
 local ktHousingComplexResultStringIds =
