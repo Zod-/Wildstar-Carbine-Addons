@@ -12,7 +12,7 @@ Remove-Item -Recurse -Force ".\Live\LuaDocData"
 Remove-Item -Recurse -Force ".\Live\_OLD"
 Remove-Item ".\Live\*.lua"
 Remove-Item ".\Live\*.xml"
-<#
+
 Remove-Item -Recurse -Force ".\PTR"
 Move-Item ".\PTR\UI\*" ".\PTR\"
 .\extract.exe "B:\WildstarPTR" ".\PTR"
@@ -27,4 +27,3 @@ Remove-Item -Recurse -Force ".\PTR\LuaDocData"
 Remove-Item -Recurse -Force ".\PTR\_OLD"
 Remove-Item ".\PTR\*.lua"
 Remove-Item ".\PTR\*.xml"
-#>
